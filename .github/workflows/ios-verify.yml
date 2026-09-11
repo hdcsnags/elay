@@ -1,0 +1,30 @@
+# ADR-005: iOS must be green from Phase 0 — "iOS second" never means "compile later".
+# Compile + native tests + framework link + unsigned Xcode simulator build on every push/PR.
+# Simulator launch + Room create/write/reopen smoke joins when Room lands (Phase 1).
+name: ios-verify
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin/Native tests (iOS simulator arm64)
+        run: ./gradlew :shared:iosSimulatorArm64Test --console=plain
+      - name: Link debug framework (proves linking, not just compilation)
+        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --console=plain
+      - name: Xcode simulator build (unsigned)
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build

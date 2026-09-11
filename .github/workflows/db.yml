@@ -1,0 +1,25 @@
+name: db
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/**"]
+  pull_request:
+    paths: ["supabase/**"]
+
+jobs:
+  pgtap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local stack
+        run: supabase start
+      - name: Apply migrations from zero
+        run: supabase db reset --local
+      - name: Schema lint
+        run: supabase db lint --local --level error
+      - name: pgTAP RLS suite (allow/deny, field-level)
+        run: supabase test db --local

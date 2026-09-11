@@ -1,0 +1,20 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# One-object-per-line rules fight the compact typed-route declarations; keep readable form
+ktlint_standard_blank-line-before-declaration = disabled
+ktlint_standard_spacing-between-declarations-with-annotations = disabled
+
+[*.bat]
+end_of_line = crlf
+
+[*.{yml,yaml,json,toml}]
+indent_size = 2

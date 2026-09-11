@@ -1,0 +1,10 @@
+# ELAY detekt overrides — defaults apply otherwise (buildUponDefaultConfig = true).
+# Keep this file small; every suppression needs a reason.
+
+style:
+  MagicNumber:
+    active: false # UI dp/sp literals; revisit when the token layer lands (ADR-004)
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"] # Composables are PascalCase by convention
