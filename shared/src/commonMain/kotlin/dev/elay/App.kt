@@ -17,7 +17,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.elay.ui.InboxRoute
+import dev.elay.ui.PlanRoute
+import dev.elay.ui.TodayRoute
+import dev.elay.ui.inbox.InboxScreen
+import dev.elay.ui.plan.PlanScreen
 import dev.elay.ui.theme.ElayTheme
+import dev.elay.ui.today.TodayScreen
 import dev.elay.ui.Surface as ElaySurface
 
 /**
@@ -56,9 +62,20 @@ fun App() {
                 startDestination = ElaySurface.Today.route,
                 modifier = Modifier.padding(padding),
             ) {
-                ElaySurface.entries.forEach { surface ->
-                    composable(surface.route::class) { PlaceholderScreen(surface.label) }
+                composable(TodayRoute::class) {
+                    TodayScreen(onOpenPlan = { navController.navigate(PlanRoute) })
                 }
+                composable(InboxRoute::class) {
+                    InboxScreen()
+                }
+                composable(PlanRoute::class) {
+                    PlanScreen()
+                }
+                ElaySurface.entries
+                    .filter { it != ElaySurface.Today && it != ElaySurface.Inbox && it != ElaySurface.Plan }
+                    .forEach { surface ->
+                        composable(surface.route::class) { PlaceholderScreen(surface.label) }
+                    }
             }
         }
     }

@@ -12,3 +12,5 @@ naming:
 complexity:
   TooManyFunctions:
     ignoreAnnotated: ["Dao"] # Room DAOs are wide by design (typed query surfaces)
+  LongParameterList:
+    ignoreAnnotated: ["Composable"] # state + event lambdas is the idiomatic Compose signature

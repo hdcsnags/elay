@@ -8,6 +8,7 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
+max_line_length = 120
 ktlint_function_naming_ignore_when_annotated_with = Composable
 # One-object-per-line rules fight the compact typed-route declarations; keep readable form
 ktlint_standard_blank-line-before-declaration = disabled
