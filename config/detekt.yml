@@ -8,3 +8,7 @@ style:
 naming:
   FunctionNaming:
     ignoreAnnotated: ["Composable"] # Composables are PascalCase by convention
+
+complexity:
+  TooManyFunctions:
+    ignoreAnnotated: ["Dao"] # Room DAOs are wide by design (typed query surfaces)

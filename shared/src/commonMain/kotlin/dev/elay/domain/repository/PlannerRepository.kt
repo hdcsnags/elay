@@ -18,6 +18,7 @@ import kotlinx.datetime.LocalDate
  * Implementations are local-first: reads observe Room; writes stage into the
  * outbox and return optimistically (rendered as pending until acknowledged).
  */
+@Suppress("TooManyFunctions") // deliberate single facade over five aggregates (council round 2026-09-11)
 interface PlannerRepository {
     // Goals
     fun observeGoals(): Flow<List<Goal>>

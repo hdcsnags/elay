@@ -17,6 +17,10 @@ subprojects {
     extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
         buildUponDefaultConfig = true
         config.setFrom(rootProject.file("config/detekt.yml"))
+        // KMP source sets aren't picked up by the plain detekt task's default
+        // source dirs — without this, :shared:detekt is NO-SOURCE (found by
+        // seat B1, 2026-09-11: a silently vacuous lint rail).
+        source.setFrom(files("src"))
     }
     extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
         android.set(true)
