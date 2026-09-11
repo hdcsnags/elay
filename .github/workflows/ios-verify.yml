@@ -31,7 +31,9 @@ jobs:
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --console=plain
       - name: Xcode simulator build (unsigned)
         run: |
+          # ARCHS=arm64: shared declares iosArm64/iosSimulatorArm64 only; the generic
+          # destination otherwise adds x86_64 and the Kotlin embed phase rejects it
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build

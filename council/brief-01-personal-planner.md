@@ -1,0 +1,16 @@
+Michael here, via Fable (my concierge agent, who now holds build authority — argue with the concierge's defaults freely; Michael only rules on risky actions). This is the PHASE 1 design round: the personal planner, one user, no households yet.
+
+CONTEXT. Read-only copy. Read in order: `ELAY-SPEC.md` §2, §3 (MVP column), §4, §6–§8, §11 Phase 1; `adr/` (000 domain, 002 backend, 003 local data + outbox, 004 nav/UI, 006 time storage, 007 visibility, 009 revocation, 010 commitments); `contracts/phase0-foundation.md`; the scaffold itself (`shared/`, `androidApp/`, `supabase/` — a `profiles` migration + pgTAP suite exist and pass; six-surface shell runs on the emulator; CI incl. macOS iOS job is live). Toolchain facts: `research/version-pins-2026-09-11.md`; we build on Kotlin 2.4.10/AGP 9.1/CMP 1.11.1 until KSP supports 2.4.20 (Room needs KSP).
+
+PHASE 1 SCOPE (spec §11): auth/session + profile/timezone settings; CRUD for goals, milestones, tasks, captures, personal time blocks; Today, Inbox, Goal detail, Task detail, simple Plan calendar; optimistic UI with outbox; RLS isolation between two test accounts. Sign-in: local Supabase email/password test users behind the ELAY `AuthGateway` (native Google/Apple parked — PING file).
+
+THE ASK — five questions, each: verdict, ≤150 words grounded in the files, concrete Phase 1 consequence.
+1. **Schema.** Propose the exact Phase 1 migration set for goals/milestones/tasks/captures/time_blocks: columns, constraints (status enums, time ordering, duration bounds — spec §8 "validate with DB constraints"), owner + nullable household_id + visibility NOW (forward-compatible with Phase 2, ADR-007) or LATER (add columns in Phase 2)? RLS shape per table (owner-only in Phase 1). Where do §7's `time_blocks.starts_at_utc/ends_at_utc/origin_tz` constraints live?
+2. **Outbox + RPCs.** For PERSONAL objects (no negotiation yet): plain PostgREST upserts with idempotency, or the transactional-RPC pattern (ADR-003) from day one? Define the outbox replay contract: ordering, retry/backoff, CONFLICT handling for single-user multi-device.
+3. **Room mapping.** Entity shapes vs domain types (kotlinx-datetime Instant/TimeZone in Room columns — converters?), what's cached (Today + Inbox horizon per ADR-009), and the DAO surface coder seats implement. Room 3.0.2/3 KMP: any known landmine with the bundled driver on iOS we must test first?
+4. **Slicing for coder seats** (disjoint files, contracts first — protocol §1.4): propose the module cut. Concierge default to attack: A) `supabase/` migrations+pgTAP (Sol, codex workspace-write); B) `shared/` data layer: Room + outbox + gateways + supabase-kt adapters (Sonnet); C) `shared/` UI surfaces on repository interfaces with fake data (second Sonnet round); concierge owns DI/wiring/auth glue. Name the interface files that must exist BEFORE A/B/C start.
+5. **Challenge.** ≤3 sentences: the biggest mistake in this plan or the defaults above.
+
+Read-only: modify nothing. 900–1,400 words. Begin with the model you are running as. End with JSON between BEGIN VERDICT / END VERDICT:
+{"schema_visibility_now":true|false,"rpc_from_day_one":true|false,"room_landmines":["..."],
+ "slicing":"as-proposed|amended: ...","interface_files":["..."],"missed":["..."],"confidence":0.0-1.0}
