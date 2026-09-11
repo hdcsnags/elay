@@ -18,6 +18,13 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Select newest Xcode (CMP/Skiko links against modern simulator SDK frameworks)
+        run: |
+          ls -d /Applications/Xcode*.app
+          latest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "selecting: $latest"
+          sudo xcode-select -s "$latest"
+          xcodebuild -version
       - name: Kotlin/Native tests (iOS simulator arm64)
         run: ./gradlew :shared:iosSimulatorArm64Test --console=plain
       - name: Link debug framework (proves linking, not just compilation)

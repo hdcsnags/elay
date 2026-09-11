@@ -6,14 +6,29 @@
 
 | Item | Value |
 |---|---|
-| Phase | **0 — Product contract & repository foundation** (not started) |
+| Phase | **0 — foundation built; Gate 0b closing on CI green** (repo public: `github.com/hdcsnags/elay`; Windows gate + emulator + pgTAP all green locally) |
 | Open gate | **Gate 0a — CLOSED 2026-09-11** (evidence: 8 decisions in `council/gate-0a-record/DECISIONS.md`; Sol+Gemini argued, Astra verified conf 0.94, both Astra challenges upheld by web fact-check and corrected in ADR-004 + toolchain sheet; ADRs 001–010; spec §5/6/14/17 amended; secrets rules in `.gitignore` before first commit). Open now: **Gate 0b — foundation** (contracts → scaffold → CI → local Supabase harness → verified baseline → coder dispatch) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
-| Repo | this folder is not a git repo yet; `git init` is part of Phase 0 |
+| Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
 | Toolchain sheet | `research/toolchain-2026-09.md` (Sonnet research 2026-09-10; UNVERIFIED items flagged — re-check at Gate 0b) |
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-11 — Claude Fable 5 (Gate 0b: scaffold built, tested, public, CI up)
+
+**Gate 0b checklist (evidence per line):**
+- [x] Contracts before scaffold (Astra sequencing): `contracts/phase0-foundation.md`, `adr/ADR-000-domain.md` (domain/ownership/timezone/AI-boundary in one page — the §11 exit test).
+- [x] Scaffold: JetBrains KMP-App-Template (Apache-2.0, LICENSE kept) → `shared` + `androidApp` + `iosApp`, package `dev.elay`, id `dev.elay.app`, six typed routes + M3 NavigationBar shell. Template layout confirmed Astra's separate-androidApp point.
+- [x] Windows gate green in ONE invocation: `ktlintCheck detekt :shared:allTests :androidApp:assembleDebug :androidApp:lintDebug` — BUILD SUCCESSFUL 57s, 111 tasks. Test count nonzero (2 commonTest via `withHostTestBuilder`); hollow-green check wired into CI too.
+- [x] Emulator pass: installed on running emulator, six tabs render, Together + Plan navigation verified by screenshot (`research/shots/gate0b-0*.png`).
+- [x] Supabase harness: local stack up (Docker), `profiles` migration with RLS + explicit grants, pgTAP 8/8 PASS incl. guessed-id and anon-denial cases.
+- [x] Formatter/linter: ktlint (+ `.editorconfig` Composable rule) and detekt (`config/detekt.yml`) both green.
+- [x] Public repo: `github.com/hdcsnags/elay` (Michael: "go public"); secrets scan before push (0 hits; local.properties/.env ignored).
+- [~] CI: android/db/ios-verify workflows pushed. First run failed on gradlew exec bit (Astra called it); fixed via `git update-index --chmod=+x`, rerun in flight.
+- [ ] Astra's remaining foundation items for Phase 1: clean-clone build check; branch protection + required checks when coder-seat PR flow starts; iOS simulator launch + Room smoke when Room lands.
+
+**Knowledge captured:** platform `android-37.0` is minor-versioned — app modules need `compileSdk 37` + `compileSdkMinor 0`; AGP 9.1 KMP `androidLibrary` DSL lacks `compileSdkMinor` (shared compiles vs 36) and needs `withHostTestBuilder {}` for host tests; `androidLibrary` block deprecated → rename to `android` at next touch. Version pins verified from primary sources: `research/version-pins-2026-09-11.md`; **staying on template baseline (Kotlin 2.4.10/AGP 9.1/CMP 1.11.1) until a KSP release supports Kotlin 2.4.20** (Room needs KSP) — concierge decision. `/build-gate` and `/concierge` skills rewritten to match reality.
 
 ### 2026-09-11 — Claude Fable 5 (Gate 0a closed: Astra verification + corrections)
 
