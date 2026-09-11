@@ -1,0 +1,12 @@
+# Normalize to LF in the repo; Windows checkout stays workable (Gradle + Kotlin tooling are LF-safe)
+* text=auto eol=lf
+*.bat text eol=crlf
+gradlew text eol=lf
+
+# Binaries
+*.jar binary
+*.png binary
+*.webp binary
+*.jpg binary
+*.docx binary
+*.keystore binary

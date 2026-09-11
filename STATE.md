@@ -7,13 +7,17 @@
 | Item | Value |
 |---|---|
 | Phase | **0 — Product contract & repository foundation** (not started) |
-| Open gate | **Gate 0a — architecture decisions** (verdicts in 2026-09-11: Sol + Gemini converge on supabase-kt · classic nav · Material 3 + tokens · GitHub Actions iOS; SPLIT on Room 3 vs SQLDelight — parked for Michael, concierge default Room 3. Astra verification after Michael rules. Matrix: Maestro `docs/audits/elay/2026-09-11-architecture-decisions/matrix.md`) |
+| Open gate | **Gate 0a — CLOSED 2026-09-11** (evidence: 8 decisions in `council/gate-0a-record/DECISIONS.md`; Sol+Gemini argued, Astra verified conf 0.94, both Astra challenges upheld by web fact-check and corrected in ADR-004 + toolchain sheet; ADRs 001–010; spec §5/6/14/17 amended; secrets rules in `.gitignore` before first commit). Open now: **Gate 0b — foundation** (contracts → scaffold → CI → local Supabase harness → verified baseline → coder dispatch) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | this folder is not a git repo yet; `git init` is part of Phase 0 |
 | Toolchain sheet | `research/toolchain-2026-09.md` (Sonnet research 2026-09-10; UNVERIFIED items flagged — re-check at Gate 0b) |
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-11 — Claude Fable 5 (Gate 0a closed: Astra verification + corrections)
+
+Astra (gpt-6, 113s, read-only clean, conf 0.94) on the full decision record: 6 CONFIRM, 2 rationale challenges — **both upheld by an independent web fact-check** (Nav3 `navigation3-ui` ships for iOS since CMP 1.10, sheet wrong; M3 Expressive is common-code but alpha, sheet wrong) — choices retained on corrected grounds. Five missed risks adopted: field-level projections (ADR-007), recurrence gap/fold policy (ADR-006), offline-cache revocation contract (ADR-009, new), per-participant commitments + durable delivery jobs (ADR-010, new — rules §16's counter-candidate and commitment-independence questions), stale-AI-confirmation envelopes (ADR-008). Gate command corrections + sequencing (contracts before scaffold, DB CI on Linux, protected branch) adopted into DECISIONS.md. Toolchain sheet annotated with corrections; Room pin moves to 3.0.3+ at scaffold. `git init -b main` done, `.gitignore`/`.gitattributes` in, baseline commit landed. **Michael (mid-session): free to search official docs, create/update skills for the build, and upgrade Maestro machinery as needed.** Next: Gate 0b — `contracts/`, scaffold, CI, local Supabase harness.
 
 ### 2026-09-11 — Claude Fable 5 (Michael's rulings: full build autonomy; Room 3; public repo)
 

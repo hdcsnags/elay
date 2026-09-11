@@ -6,4 +6,6 @@
 
 **The human gate.** AI output is untrusted structured *suggestion*; deterministic app logic + explicit user confirmation perform every real change (§10 rule of thumb: AI is never authoritative about permissions, membership, timezone conversion, conflicts, or whether an action committed). Retrieved user text is data, never instructions (§12 Phase 5, prompt-injection rule).
 
+**Stale-confirmation rule (Astra, 2026-09-11).** A valid AI preview can reference a task deleted or a membership revoked between suggestion and tap. AI suggestions travel in **versioned proposal envelopes** carrying the versions of every referenced entity; the confirm action is a normal authenticated command that revalidates permissions, conflicts and entity versions at commit time and REJECTS stale envelopes (client then refreshes the preview). Contract fixtures for the envelope schema are shared between the Kotlin client and the Edge Function.
+
 **Kill switch & telemetry.** Per-feature/provider flags; core planner runs fully with AI off (§14 rule 9). Log purpose/latency/cost metadata, not raw private prompts.

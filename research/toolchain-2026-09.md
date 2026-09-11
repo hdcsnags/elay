@@ -4,6 +4,11 @@
 
 # KMP + Compose Multiplatform toolchain sheet — greenfield start, September 2026
 
+> **CORRECTIONS (2026-09-11, Astra verification + web fact-check, `council/gate-0a-record/`):**
+> - **Line "Navigation 3 in CMP" is WRONG** about the artifact: `navigation3-ui` IS published for iOS/desktop/web since CMP 1.10 (v1.1.1 on Maven Central). The real caveat is that non-JVM targets need explicit `SerializersModule`/`SavedStateConfiguration` (no reflection) — not a missing artifact, not hand-rolled `NavDisplay`.
+> - **Line "Material 3 Expressive … effectively Android-only" is WRONG**: `MaterialExpressiveTheme` works from common code across platforms since CMP 1.9 (`material3:1.9.0-alpha04`), but remains experimental/alpha opt-in as of 2026-09.
+> - **Room 3.0.2 is stale**: 3.0.3 was already on the release page 2026-09-11. Pin from Maven Central at scaffold time.
+
 ## 1. Core Kotlin / Compose / AGP / wizard
 - **Kotlin (stable): 2.4.20** — released 2026-09-07. Plugin `org.jetbrains.kotlin.multiplatform`. https://kotlinlang.org/docs/releases.html · https://blog.jetbrains.com/kotlin/2026/09/kotlin-2-4-20-released/
 - **Compose Multiplatform: 1.12.0** — August 2026. Plugin id `org.jetbrains.compose`. https://blog.jetbrains.com/kotlin/2026/08/compose-multiplatform-1-12-0/
