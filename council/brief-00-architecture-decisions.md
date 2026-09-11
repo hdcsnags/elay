@@ -1,0 +1,20 @@
+Hi — Michael here, via Fable (my concierge agent). This is the FIRST set of decisions for a new product, ELAY. I want an argument with numbers and file references, not a survey.
+
+CONTEXT. You are in a read-only copy of the project folder. Read `ELAY-SPEC.md` fully (the product brief, converted from Elay.docx): a shared time-and-goal planner whose signature interaction is a "time lock" proposed in one person's local time and negotiated by others in theirs; households with private-by-default sharing; Google/Apple sign-in; optional Google Calendar; an AI copilot that proposes while humans commit; a capability-driven, gated roadmap. Read `research/toolchain-2026-09.md` (a September-2026 toolchain sheet; items marked UNVERIFIED are exactly that).
+
+MICHAEL'S RULING SO FAR (2026-09-11), which you may challenge in Q5 but must otherwise build on: the app is **Kotlin Multiplatform + Compose Multiplatform**, Android first, iOS second. He has just shipped a Kotlin/Jetpack Compose app (Eliana's Rhythm), reads Kotlin fluently, has several Macs at home for the iOS toolchain, and finds React Native/Expo apps "pretty ugly" — so the brief's §5 recommendation (React Native + Expo + TypeScript) is NOT the default any more. The build will be done largely BY AI agents on a Windows 10 machine with Android Studio and a running emulator; a Mac (local or a CI runner) handles iOS compiles.
+
+THE ASK — five decisions, each with a verdict, ≤150 words of reasoning grounded in the brief's sections, and the concrete consequence for Phase 0:
+  1. **Backend.** The brief argues Supabase (Postgres + RLS + Realtime + Edge Functions) over Firebase in §5 and builds its security model on RLS in §8. On KMP that means `supabase-kt` (community-maintained, Ktor-based) versus Firebase through GitLive's `dev.gitlive:firebase-*` (also community). Pick one. Weigh: the RLS/visibility model of §7–8, the time-lock state machine of §4 (transactions, conflict checks), offline (§6 "Offline strategy"), realtime negotiation, Edge Functions for the AI gateway (§10), and the maintenance risk of each Kotlin SDK. If you pick Firebase, rewrite §8's authorization story in ≤120 words.
+  2. **Local data + sync.** Room 3.0 (KMP, KSP-only, new) vs SQLDelight 2.x (mature) for the local cache/outbox the brief requires; and the outbox/sync shape for time-lock proposals.
+  3. **Navigation + UI kit.** Classic `org.jetbrains.androidx.navigation:navigation-compose` vs Navigation 3 on CMP (alpha-ish on non-JVM targets); Material 3 (CMP artifact) vs a custom design system — note Material 3 Expressive is Android-only today. The brief's §2 "Core navigation" is the requirement.
+  4. **iOS build pipeline.** Local Mac in the loop vs GitHub Actions macOS runner vs a hosted CI (Codemagic/Bitrise): cost, secrets handling (App Store keys), how agents trigger and read results from Windows, and what to do until the first Mac is set up.
+  5. **Challenge.** ≤3 sentences: is Michael wrong to drop the brief's React Native path, or wrong about anything else above? Say it plainly.
+
+Then: **Phase 0 exit gate, made concrete** — the exact commands that must go green on the Windows machine before Phase 1 starts (Gradle build of `composeApp` + `shared` tests + lint + the backend policy test harness), and the exact commands that run on the Mac/CI for iOS. And the **three most likely ways an agent-driven build of THIS product fails in Phases 1–3** with your choices, each with its guardrail.
+
+Ground claims in the files (quote section numbers and the toolchain sheet lines). Read-only: do not modify any file. 1,000–1,500 words. Begin with the model you are running as. End with a JSON block between the exact lines BEGIN VERDICT and END VERDICT:
+  {"backend":"supabase|firebase","local_data":"room3|sqldelight","navigation":"classic|nav3","ui_kit":"material3|custom",
+   "ios_pipeline":"local-mac|github-actions|hosted-ci","confidence":0.0-1.0,
+   "phase0_gate_windows":["<command>"],"phase0_gate_mac":["<command>"],
+   "failure_modes":[{"risk":"...","guardrail":"..."}],"michael_is_wrong_about":"<or null>"}

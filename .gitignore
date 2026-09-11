@@ -1,0 +1,34 @@
+# --- secrets: never commit (AGENTS.md rule) ---
+local.properties
+.env
+.env.*
+*.keystore
+*.jks
+serviceAccountKey*.json
+google-services.json
+GoogleService-Info.plist
+supabase/.temp/
+supabase/.env
+
+# --- build output ---
+.gradle/
+build/
+*/build/
+.kotlin/
+.konan/
+*.apk
+*.aab
+captures/
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- node (CLI tooling only) ---
+node_modules/
+
+# --- session instrumentation (MaestroClaw) ---
+session.log
+.maestroclaw-session.log
