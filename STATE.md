@@ -15,6 +15,12 @@
 
 ## Session log
 
+### 2026-09-11 — Claude Fable 5 (Phase 1 design round + Room/KSP wiring)
+
+Council round `brief-01-personal-planner.md` (Sol 178s conf 0.94 + Gemini 143s, git clones, read-only clean). **Converged:** visibility/household_id columns NOW (with Phase 1 CHECK forcing private/null); transactional RPCs from day one with idempotency receipts; Room entities as primitives with explicit mappers, epoch-ms instants, per-account DB files; my slicing was wrong the same way per both seats — the data seat must split (B1 Room/outbox, B2 remote adapters/sync) and the concierge wires KSP/Room BEFORE any coder dispatch (coder seats can't edit build files — my own rule). **Concierge rulings on the splits** (matrix: Maestro `docs/audits/elay/2026-09-11-phase1-design/matrix.md`): typed per-entity RPCs over one generic mutation RPC; priority smallint 0..3; milestones as lean children (RLS via goal EXISTS); backoff cap 2 min; Sol's composite owner-aware FKs adopted.
+
+**Wiring executed same-day:** Room 3.0.3 + KSP 2.3.12 + sqlite-bundled + kotlinx-datetime + supabase-kt 3.8.0 wired; **KSP under Kotlin 2.4.10 proven on iosSimulatorArm64 + android + host** (the round's riskiest unknown, retired empirically). Outbox skeleton + platform DB builders (iOS creates the Application Support dir first — SQLITE_CANTOPEN; `setQueryCoroutineContext(Dispatchers.IO)` per Gemini) + Room create/write/reopen smoke test now running in ios-verify CI (Sol's sequencing gate). Next: `contracts/phase1-planner.md` + frozen interfaces, then coder seats A (Sol: migrations+RPCs+pgTAP), B1 (Sonnet: Room/outbox), C1 (Sonnet: Today/Inbox/Plan on fakes) — B2 after A+B1 land.
+
 ### 2026-09-11 — Claude Fable 5 (Gate 0b: scaffold built, tested, public, CI up)
 
 **Gate 0b checklist (evidence per line):**

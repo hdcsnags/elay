@@ -10,13 +10,20 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
-/** Typed route contracts — names fixed in contracts/phase0-foundation.md. */
+/** Typed route contracts — names fixed in contracts/phase0-foundation.md + phase1-planner.md §5. */
 @Serializable object TodayRoute
 @Serializable object PlanRoute
 @Serializable object GoalsRoute
 @Serializable object InboxRoute
 @Serializable object TogetherRoute
 @Serializable object ReviewRoute
+@Serializable data class GoalDetailRoute(
+    val id: String,
+)
+@Serializable data class TaskDetailRoute(
+    val id: String,
+)
+@Serializable object SettingsRoute
 
 /** The six §2 top-level surfaces, in bar order. */
 enum class Surface(
