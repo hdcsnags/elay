@@ -6,8 +6,8 @@
 
 | Item | Value |
 |---|---|
-| Phase | **0 — foundation built; Gate 0b closing on CI green** (repo public: `github.com/hdcsnags/elay`; Windows gate + emulator + pgTAP all green locally) |
-| Open gate | **Gate 0a — CLOSED 2026-09-11** (evidence: 8 decisions in `council/gate-0a-record/DECISIONS.md`; Sol+Gemini argued, Astra verified conf 0.94, both Astra challenges upheld by web fact-check and corrected in ADR-004 + toolchain sheet; ADRs 001–010; spec §5/6/14/17 amended; secrets rules in `.gitignore` before first commit). Open now: **Gate 0b — foundation** (contracts → scaffold → CI → local Supabase harness → verified baseline → coder dispatch) |
+| Phase | **1 — personal planner** (design round dispatched; coder rounds next) |
+| Open gate | **Gate 1 — personal planner** (spec §11 Phase 1). Gates 0a AND 0b **CLOSED 2026-09-11** — 0a: `council/gate-0a-record/` (Sol+Gemini argued, Astra verified 0.94, challenges web-checked); 0b: checklist in the 0b session entry, all ticked with evidence; CI green ×3 on `github.com/hdcsnags/elay` (android 34563974065, db 34563876200, ios-verify 34565336990) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
 | Toolchain sheet | `research/toolchain-2026-09.md` (Sonnet research 2026-09-10; UNVERIFIED items flagged — re-check at Gate 0b) |
@@ -25,7 +25,7 @@
 - [x] Supabase harness: local stack up (Docker), `profiles` migration with RLS + explicit grants, pgTAP 8/8 PASS incl. guessed-id and anon-denial cases.
 - [x] Formatter/linter: ktlint (+ `.editorconfig` Composable rule) and detekt (`config/detekt.yml`) both green.
 - [x] Public repo: `github.com/hdcsnags/elay` (Michael: "go public"); secrets scan before push (0 hits; local.properties/.env ignored).
-- [~] CI: android/db/ios-verify workflows pushed. First run failed on gradlew exec bit (Astra called it); fixed via `git update-index --chmod=+x`, rerun in flight.
+- [x] CI green ×3: android 34563974065 (incl. hollow-green test-count check), db 34563876200 (pgTAP), ios-verify **34565336990** — after four foundation fixes, each recorded in `/build-gate`: gradlew exec bit (`git update-index --chmod=+x`), newest-Xcode selection (default 16.4 lacks the UIUtilities framework CMP 1.11/Skiko auto-links), `ARCHS=arm64` (shared declares no x86_64 target), leftover Koin init in `iOSApp.swift`. **Gate 0b CLOSED 2026-09-11.** iOS: verified on GitHub macos-15 runner.
 - [ ] Astra's remaining foundation items for Phase 1: clean-clone build check; branch protection + required checks when coder-seat PR flow starts; iOS simulator launch + Room smoke when Room lands.
 
 **Knowledge captured:** platform `android-37.0` is minor-versioned — app modules need `compileSdk 37` + `compileSdkMinor 0`; AGP 9.1 KMP `androidLibrary` DSL lacks `compileSdkMinor` (shared compiles vs 36) and needs `withHostTestBuilder {}` for host tests; `androidLibrary` block deprecated → rename to `android` at next touch. Version pins verified from primary sources: `research/version-pins-2026-09-11.md`; **staying on template baseline (Kotlin 2.4.10/AGP 9.1/CMP 1.11.1) until a KSP release supports Kotlin 2.4.20** (Room needs KSP) — concierge decision. `/build-gate` and `/concierge` skills rewritten to match reality.
