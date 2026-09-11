@@ -1,5 +1,12 @@
 [versions]
 compose-material-icons = "1.7.3"
+ksp = "2.3.12"
+room = "3.0.3"
+sqlite-bundled = "2.7.1"
+kotlinx-datetime = "0.8.0"
+kotlinx-coroutines = "1.11.0"
+kotlinx-serialization-json = "1.11.0"
+supabase = "3.8.0"
 agp = "9.1.0"
 android-compileSdk = "37"
 android-compileSdkMinor = "0"
@@ -19,6 +26,15 @@ ktlint-gradle = "14.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite-bundled" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization-json" }
+supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
+supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
+supabase-realtime = { module = "io.github.jan-tennert.supabase:realtime-kt", version.ref = "supabase" }
 compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "compose-material-icons" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-lifecycle-runtimeCompose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
@@ -38,6 +54,7 @@ navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-co
 
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

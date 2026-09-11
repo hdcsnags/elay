@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -69,10 +70,27 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        commonMain.dependencies {
+            implementation(libs.room.runtime)
+            implementation(libs.sqlite.bundled)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.supabase.auth)
+            implementation(libs.supabase.postgrest)
+            implementation(libs.supabase.realtime)
         }
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+    add("kspAndroid", libs.room.compiler)
+    add("kspIosArm64", libs.room.compiler)
+    add("kspIosSimulatorArm64", libs.room.compiler)
 }
