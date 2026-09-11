@@ -23,7 +23,9 @@
 
 **Seat A (Sonnet, schema/RPCs): merged.** 5 tables + guards + composite owner-FKs + origin_tz trigger, mutation_receipts (+`result jsonb`, seat's sound improvement), 10 idempotent conflict-safe RPCs, wire fixtures. Concierge runtime verification in the seat clone: reset + lint clean, **pgTAP 170/170** after 3 concierge test fixes (temp-table grants across role switches; two assertions pinned to the constraint that actually fires — the Phase-1 guard masks the visibility enum CHECK; duration-bounds fires before time-order). **CI ×3 green post-merge** (runs 34569676531/67/81) — pgTAP independently confirmed on Linux.
 
-Open: seat C1 (Today/Inbox/Plan on fakes) in flight → then emulator pass + B2 (remote adapters + replay vs A's fixtures).
+**Seat C1 (Sonnet, UI surfaces): merged.** Today/Inbox/Plan + ViewModels + fake repository with seeded data; 56 executed tests (+38). Concierge merge fixes, each verified: (1) **coroutines 1.11 trap** — `advanceUntilIdle` no longer drains `backgroundScope` collectors; `runCurrent` does (minimal-repro proven; C1 independently converged on an equivalent fix in its clone — kept mine, already merged). (2) Real bug from detekt's newly-unblinded eye: **Plan's block tap was never wired** (Card without onClick). (3) Today task-card squeeze (title `weight(1f)`). (4) ktlint/detekt aligned at max_line_length=120. **Emulator pass:** `research/shots/phase1-01-today/02-inbox/03-plan.png` — Today: happening-now card + focus tasks + schedule with correct local times; Inbox: capture-first, calm copy; Plan: day nav + positioned blocks. Process lesson: my stand-down and fix-it messages to C1 raced → duplicate work; next time one message, one instruction.
+
+Open next: **seat B2** (supabase-kt adapters + replay engine vs A's fixtures — brief exists in the contract §6), then auth glue + DI (concierge), then Gate 1 RLS isolation run on two local test accounts.
 
 ### 2026-09-11 — Claude Fable 5 (Phase 1 design round + Room/KSP wiring)
 
