@@ -47,9 +47,15 @@ jobs:
           MERGED=androidApp/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
           test -f "$MERGED" || MERGED=$(find androidApp/build/intermediates/merged_manifests/release -name AndroidManifest.xml | head -1)
           grep -q 'allowBackup="false"' "$MERGED"
+          grep -q 'dataExtractionRules' "$MERGED"
           grep -q 'networkSecurityConfig' "$MERGED"
           ! grep -q 'usesCleartextTraffic="true"' "$MERGED"
-          test "$(grep -c 'android:exported="true"' "$MERGED")" = "1"
+          # Exported-component allowlist: MainActivity (launcher) + AndroidX's
+          # permission-guarded ProfileInstallReceiver, which the manifest merger injects.
+          # Anything beyond these two fails the pin.
+          test "$(grep -c 'android:exported="true"' "$MERGED")" = "2"
+          grep -q 'dev.elay.MainActivity' "$MERGED"
+          grep -A4 'ProfileInstallReceiver' "$MERGED" | grep -q 'android.permission.DUMP'
       - name: Assert no println outside ElayLog
         run: ./gradlew assertNoPrintln --no-daemon
       - name: Archive R8 mapping
