@@ -15,6 +15,10 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (Michael's recalibration: product, not gates)
+
+**Ruling/metric (Michael, ~midnight):** the test's success is "I open my computer and have a working product" — not closed gates, not evidence trails. Scaffold + basic UI + stubs where he wasn't the blocker = failure mode. This is a Maestro-orchestrating-itself PoC (Fable leading this run; Astra or Sol leads the next), and the postmortem question is orchestrator vs models vs setup as the weak link → ledger now lives in **`RETRO-MAESTRO.md`** (updated every gate, brutal honesty; the "other window" plans Maestro upgrades from it). **Sequencing consequence:** vertical slice beats breadth — sign-in → real repository → live sync → all six surfaces → Gate 1 E2E, then straight up the gates toward the signature time-lock (Gate 3), loop never parking while work is unblocked. Honest current state recorded in the retro: 3 surfaces on fake data, no sign-in, zero app network calls — foundations real, product not yet.
+
 ### 2026-09-11 — Claude Fable 5 (Phase 1 coder round: A + B1 merged and CI-green)
 
 **Seat infrastructure findings (both recorded in `/council` + PING):** MaestroClaw MODE=code is broken for BOTH coder adapters on this box — claude_code task mode can't write (permission prompts; harness classifier rightly blocked wiring `--dangerously-skip-permissions` into the dispatch script), and codex workspace-write fails outright (`helper_unknown_error`, write-probe verified). Working pattern: **Sonnet subagents via the harness Agent tool in scratch clones**, diffs reviewed and merged by the concierge. Sol remains read-only-capable.
