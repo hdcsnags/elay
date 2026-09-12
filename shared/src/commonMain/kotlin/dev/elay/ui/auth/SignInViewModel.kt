@@ -1,6 +1,7 @@
 package dev.elay.ui.auth
 
 import dev.elay.data.remote.AuthGateway
+import dev.elay.util.ElayLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -102,10 +103,16 @@ class SignInViewModel(
 /** Calm, specific-enough-to-act-on copy — never a raw provider error or a red banner (spec §2). */
 private fun calmMessageFor(error: Throwable): String {
     // Diagnosability (concierge 2026-09-12): the calm copy must never mean silent failure —
-    // the underlying cause goes to the platform log for adb/Console diagnosis.
-    println("ELAY auth failure: ${error::class.simpleName}: ${error.message}")
+    // the underlying cause goes to the platform log for adb/Console diagnosis (debug builds
+    // only — release-stripped via ElayLog, stage5 §A MASVS checklist).
+    ElayLog.w("Auth") { authFailureLogMessage(error) }
     return calmCopyFor(error)
 }
+
+/** Stage5 §A: class name only, never [Throwable.message] — the message can carry the email the
+ * user just typed. Extracted so its no-message-leak behavior is directly testable without going
+ * through [ElayLog]. */
+internal fun authFailureLogMessage(error: Throwable): String = "ELAY auth failure: ${error::class.simpleName}"
 
 private fun calmCopyFor(error: Throwable): String =
     when {

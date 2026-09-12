@@ -15,6 +15,7 @@ import dev.elay.domain.model.ProposalState
 import dev.elay.domain.model.ProposalSummary
 import dev.elay.domain.model.RespondProposal
 import dev.elay.domain.repository.ProposalRepository
+import dev.elay.util.ElayLog
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
@@ -414,11 +415,11 @@ class SupabaseProposalRepository internal constructor(
     private suspend fun refetch() {
         // Mapping runs inside the catch — see [mutate]'s F12 note.
         runCatchingSuspend { transport.fetchActive().map { it.toDomain() } }
-            .onFailure { println("ELAY proposal refetch failure (active): $it") }
+            .onFailure { error -> ElayLog.w("Proposal") { "ELAY proposal refetch failure (active): $error" } }
             .getOrNull()
             ?.let { mutableActive.value = it }
         runCatchingSuspend { transport.fetchHistory().map { it.toDomain() } }
-            .onFailure { println("ELAY proposal refetch failure (history): $it") }
+            .onFailure { error -> ElayLog.w("Proposal") { "ELAY proposal refetch failure (history): $error" } }
             .getOrNull()
             ?.let { mutableHistory.value = it }
     }

@@ -15,6 +15,7 @@ import dev.elay.data.remote.dto.TaskDto
 import dev.elay.data.remote.dto.TimeBlockDto
 import dev.elay.data.remote.dto.toDomain
 import dev.elay.sync.Aggregate
+import dev.elay.util.ElayLog
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -132,8 +133,11 @@ class ServerHydrator(
             applyRows(rows)
         }.onFailure { error ->
             // Diagnosability (concierge 2026-09-12 precedent): never throws, never blocks
-            // startup, but the cause still reaches the platform log.
-            println("ELAY hydration failure: ${aggregate.wire} ${error::class.simpleName}: ${error.message}")
+            // startup, but the cause still reaches the platform log (debug builds only —
+            // release-stripped via ElayLog, stage5 §A MASVS checklist).
+            ElayLog.w("Hydration") {
+                "ELAY hydration failure: ${aggregate.wire} ${error::class.simpleName}: ${error.message}"
+            }
         }
     }
 }

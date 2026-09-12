@@ -55,7 +55,9 @@ android {
                 .get()
                 .toInt()
         // Stage 5 release lane: one source of truth in libs.versions.toml.
-        val elayVersion = libs.versions.elay.version.get()
+        val elayVersion =
+            libs.versions.elay.version
+                .get()
         val (vMajor, vMinor, vPatch) = elayVersion.split(".").map { it.toInt() }
         versionCode = vMajor * 10000 + vMinor * 100 + vPatch
         versionName = elayVersion
@@ -108,7 +110,6 @@ kotlin {
         jvmTarget = JvmTarget.JVM_11
     }
 }
-
 
 // Stage 5 hardening item 3: a release artifact must never carry a cleartext or loopback
 // backend. Fails the build BEFORE packaging when the configured values are unfit.

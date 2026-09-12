@@ -12,6 +12,7 @@ import dev.elay.sync.Aggregate
 import dev.elay.sync.MutationCommand
 import dev.elay.sync.SyncCoordinator
 import dev.elay.sync.SyncStatus
+import dev.elay.util.ElayLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -112,9 +113,10 @@ class OutboxSyncCoordinator(
         entry: OutboxEntity,
         failure: MutationResult.Failed,
     ): Boolean {
-        // Diagnosability (concierge 2026-09-12): failures must reach the platform log.
+        // Diagnosability (concierge 2026-09-12): failures must reach the platform log (debug
+        // builds only — release-stripped via ElayLog, stage5 §A MASVS checklist).
         val failNote = "${failure.reason} retryable=${failure.retryable}"
-        println("ELAY sync failure: op=${entry.operationId} ${entry.type} -> $failNote")
+        ElayLog.w("Sync") { "ELAY sync failure: op=${entry.operationId} ${entry.type} -> $failNote" }
         if (failure.reason == AUTH_REQUIRED_REASON) {
             writeDao.markOutbox(entry.operationId, "PENDING")
             authGateway.refreshSession()

@@ -11,6 +11,7 @@ import dev.elay.domain.model.PairId
 import dev.elay.domain.model.PairState
 import dev.elay.domain.model.RedeemResult
 import dev.elay.domain.repository.PairRepository
+import dev.elay.util.ElayLog
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -157,10 +158,11 @@ private class SupabaseRealtimePairTransport(
     override suspend fun subscribe(topic: String): PairChannelHandle {
         val channel = client.realtime.channel(topic) { isPrivate = true }
         channel.subscribe()
-        println(
-            "ELAY realtime subscribe: topic=$topic " +
-                "status=${channel.status.value} socket=${client.realtime.status.value}",
-        )
+        // Stage5 §A: log a hash, never the raw topic — the topic string embeds the pair id.
+        ElayLog.d("Realtime") {
+            "ELAY realtime subscribe: topic=#${topic.hashCode()} " +
+                "status=${channel.status.value} socket=${client.realtime.status.value}"
+        }
         return SupabaseRealtimeChannelHandle(client, channel)
     }
 
@@ -195,7 +197,11 @@ private class SupabaseRealtimeChannelHandle(
             channel.broadcastFlow(EVENT_PROPOSAL_CREATED).map { Unit },
             channel.broadcastFlow(EVENT_PROPOSAL_UPDATED).map { Unit },
             channel.broadcastFlow(EVENT_COMMITMENT_CHANGED).map { Unit },
-        ).onEach { println("ELAY realtime proposal event on ${channel.topic}") }
+            // NOTE (D2, flagged for lead review): channel.topic embeds the pair id, same as the
+            // subscribe-site topic above; §A named only that site for hashing, so this one is
+            // left as a like-for-like println->ElayLog swap. Consider hashing here too for
+            // consistency.
+        ).onEach { ElayLog.d("Realtime") { "ELAY realtime proposal event on topic#${channel.topic.hashCode()}" } }
 
     override suspend fun close() {
         client.realtime.removeChannel(channel)
