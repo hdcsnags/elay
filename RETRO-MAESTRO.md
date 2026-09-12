@@ -14,6 +14,11 @@ Opening the app today: 3 of 6 surfaces on FAKE in-memory data, no sign-in, no pe
 1. **The 16h stall (worst failure so far).** Ended a turn at a milestone with unblocked work remaining and no scheduled wake-up; event-driven session never re-entered. User noticed; protocol now has §1.10 and the loop is armed. An orchestrator that stops is indistinguishable from one that finished.
 2. **Breadth-first bias.** Sequenced by architectural layer (schema→data→UI-on-fakes) instead of driving one vertical slice to "usable" first. Correct for risk-retirement, wrong for the actual metric until 2026-09-11 recalibration.
 3. Raced its own seat messages once (stand-down + fix-it to C1 crossing → duplicate work).
+4. **Hollow-green, self-inflicted (2026-09-12 Stage 2):** ran the gate as `gradlew … | tail`, the pipe swallowed a BUILD FAILED into exit 0, and a STALE APK got installed and E2E'd for a full round before the on-device error message exposed it. The same class of failure the process exists to catch in seats — the orchestrator's own gates need the same rigor (`/build-gate` now mandates pipefail + a GATE_GREEN marker).
+
+### Verification wins worth keeping (2026-09-12 Stage 2)
+- The **silent-swallow rule paid for itself a third time**: one println at the proposal refetch swallow point turned "feed mysteriously empty" into an exact MissingFieldException path in one run.
+- **RAISE LOG inside the checker's own transaction** (survives its rollback) root-caused the Realtime Unauthorized in two cycles after three plausible theories tested clean — instrument where the decision is made, not where the symptom shows. The finding is generalizable: **Realtime's join probe row has `private=false, event=null`; any policy on realtime.messages predicating on those columns silently kills every private-channel join** (this had been latent since Stage 1 and is why the realtime observation kept slipping).
 
 ### Models (seats)
 - **Strong:** honest UNVERIFIED reporting everywhere (Sol declining to fake success when its sandbox broke; A/B2 flagging exactly what they couldn't run); B2 decompiling jars to verify SDK claims; seats catching machinery blind spots (B1 found the vacuous detekt rail).
