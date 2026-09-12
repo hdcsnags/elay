@@ -15,6 +15,19 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 5 BUILT + LIVE: retention loop, hardening pass, release artifacts)
+
+**All Stage 5 seats merged** (A7 SQL: `session_outcomes` + suggestion RPC, **700/700 pgTAP on its first live run**; B8 client data; D2 ElayLog — all seven printlns release-stripped, BOTH realtime topic logs hashed; C7 Today UI — 356 host tests). **Retention loop proven live:** the Session wrap-up card renders §B's copy on the elapsed block; "Didn't happen" tap → server row `didnt_happen` **version 2** (the upsert re-record); the ran-long pill selector (+15/+30/+45/Save) works. Lead fix at merge: the LocalOutcomeRepository provide had silently missed (reformatted anchor — the default fake swallowed records with no error; same lesson class as the evidence-package finding: verify the WIRING, not just the gate).
+
+**Hardening (MASVS MUSTs 1–7 done):** allowBackup=false + full extraction-rule excludes; TLS-only release NSC with a debug-NSC override (the manifest cleartext flag is IGNORED once an NSC exists — machine lesson); R8+shrink with serialization/Room/driver keeps; release refuses non-https endpoints (`-Pelay.allowInsecureRelease=true` escape hatch for the local smoke ONLY, loudly logged); detekt println ban; keystore lane outside the repo (PING for Michael's real one) + toml versioning (1.0.0 → versionCode 10000); dependency-audit note deferred to the pre-gate round's checklist.
+
+**Release artifacts, first run:** `bundleRelease` green after one configuration-cache fix (task captured script refs) — **unsigned AAB 9.8MB**, sha256 recorded in the closure entry; **the minified smoke PASSED on device**: scratch-signed release APK → fresh sign-in through the UI → Today renders with the wrap-up card (live RPCs + Room + serialization under R8, zero keep-rule failures). Store-listing drafts in `docs/store-listing.md`.
+
+**C7 flagged gaps tracked:** "Right on time" folded into finished_early(delta 0) — a schema/copy seam for the next pass; material-icons-extended is lead build-file work if §B's exact icons are wanted; partner-name segment on the next-time card needs a cross-grant field. Cosmetic: Today's schedule rows show raw seconds (pre-existing).
+
+**Next:** Stage 5 pre-gate verification round (Opus + Gemini), then stage + master-plan closure.
+
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 4 CLOSED)
 
 **Closure checklist:**

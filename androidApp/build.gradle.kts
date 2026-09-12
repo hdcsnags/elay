@@ -114,9 +114,11 @@ kotlin {
 // Stage 5 hardening item 3: a release artifact must never carry a cleartext or loopback
 // backend. Fails the build BEFORE packaging when the configured values are unfit.
 val assertReleaseEndpoints by tasks.registering {
+    // Configuration-cache-safe: plain values captured at configuration time; the action
+    // references no script objects (Gradle cc requirement, found on the first release build).
+    val url = supabaseUrl
+    val allowInsecure = providers.gradleProperty("elay.allowInsecureRelease").orNull == "true"
     doFirst {
-        val url = supabaseUrl
-        val allowInsecure = providers.gradleProperty("elay.allowInsecureRelease").orNull == "true"
         if (allowInsecure) {
             logger.lifecycle(
                 "WARNING: elay.allowInsecureRelease=true — building a RELEASE against '" + url +
