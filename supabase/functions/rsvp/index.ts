@@ -375,6 +375,10 @@ type EdgeKind =
 interface Resolved {
   kind: EdgeKind;
   ready?: ReadyData;
+  // Pre-gate F13a: rpc_get_rsvp_render_data returns proposer_display_name even for
+  // non-live states (minimal shape) -- edge pages use the real name, not "the other
+  // person".
+  proposerName?: string;
 }
 
 function mapRenderData(payload: unknown): Resolved {
@@ -390,7 +394,10 @@ function mapRenderData(payload: unknown): Resolved {
   if (outcome === "ok") {
     const state = String(p.state ?? "");
     if (state !== "live") {
-      return { kind: mapTokenState(state) };
+      return {
+        kind: mapTokenState(state),
+        proposerName: typeof p.proposer_display_name === "string" ? p.proposer_display_name : undefined,
+      };
     }
     const candidatesRaw = Array.isArray(p.candidates) ? p.candidates : [];
     const candidates: Candidate[] = candidatesRaw.map((c) => {
@@ -635,8 +642,8 @@ function renderReadyPage(token: string, data: ReadyData): string {
         ? `<span class="dst-caption">${esc(v.dstCaption)}</span>`
         : "";
       return `<label class="candidate" for="opt-${v.idx}">
-  <input type="radio" name="candidate_idx" id="opt-${v.idx}" value="${v.idx}" ${i === 0 ? "checked" : ""}>
-  <span class="body" role="radio" aria-checked="${i === 0 ? "true" : "false"}" aria-label="${esc(v.ariaLabel)}">
+  <input type="radio" name="candidate_idx" id="opt-${v.idx}" value="${v.idx}" aria-label="${esc(v.ariaLabel)}" ${i === 0 ? "checked" : ""}>
+  <span class="body">
     <span class="line primary">${esc(v.primaryLine)}</span>
     <span class="line secondary">${esc(v.secondaryLine)}</span>
     ${dst}
@@ -936,7 +943,7 @@ async function handleGet(token: string, clientIp: string | null): Promise<Respon
   if (resolved.kind === "ready" && resolved.ready) {
     return htmlResponse(renderReadyPage(token, resolved.ready));
   }
-  const proposerName = "the other person";
+  const proposerName = resolved.proposerName ?? resolved.ready?.proposer_display_name ?? "the other person";
   return htmlResponse(renderResolved(resolved.kind, proposerName));
 }
 
@@ -960,7 +967,7 @@ async function handlePostRespond(token: string, req: Request, clientIp: string |
   }
   const resolved = mapRenderData(renderPayload);
   if (resolved.kind !== "ready" || !resolved.ready) {
-    return htmlResponse(renderResolved(resolved.kind, "the other person"));
+    return htmlResponse(renderResolved(resolved.kind, resolved.proposerName ?? "the other person"));
   }
   const data = resolved.ready;
 

@@ -23,7 +23,7 @@
 --   grep-proofs: no plaintext token in rsvp_tokens/mutation_receipts/realtime.messages -> T-GREP-*
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(74);
+select plan(82);
 
 -- ===================================================================================
 -- structure
@@ -257,9 +257,10 @@ set local role authenticated;
 
 -- ===================================================================================
 -- T-RATE-*: the per-token limit trips at the boundary with the identical opaque shape.
+-- Cap is 30/15min (pre-gate F8: each web interaction resolves 2-3 times; unfurlers more).
 -- Uses a fresh, otherwise-perfectly-VALID token (dedicated proposal, zero prior attempts)
--- so the 11th call's opaque result is provably due to rate limiting, not token invalidity
--- -- the first 10 calls each individually still resolve normally.
+-- so the 31st call's opaque result is provably due to rate limiting, not token invalidity
+-- -- the first 30 calls each individually still resolve normally.
 -- ===================================================================================
 set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-000000021a01","role":"authenticated"}';
 insert into t_result (label, result) select 'p_rate_create', public.rpc_create_proposal(
@@ -277,7 +278,7 @@ declare
     v_out   jsonb;
 begin
     select result->>'token' into v_token from t_result where label = 'p_rate_mint';
-    for i in 1 .. 10 loop
+    for i in 1 .. 30 loop
         select public.rpc_get_rsvp_render_data(v_token) into v_out;
         if v_out->>'outcome' <> 'ok' then
             raise exception 'T-RATE setup invariant broken: call % unexpectedly returned %', i, v_out;
@@ -286,10 +287,10 @@ begin
 end;
 $$;
 insert into t_result (label, result) select 'rate_11th', public.rpc_get_rsvp_render_data((select result->>'token' from t_result where label = 'p_rate_mint'));
-select is((select result->>'outcome' from t_result where label = 'rate_11th'), 'invalid_or_unavailable', 'T-RATE-1: the 11th attempt against an otherwise-live token trips the 10/15min per-token limit and returns the opaque shape');
+select is((select result->>'outcome' from t_result where label = 'rate_11th'), 'invalid_or_unavailable', 'T-RATE-1: the 31st attempt against an otherwise-live token trips the 30/15min per-token limit and returns the opaque shape');
 select ok(
     (select count(*)::int from public.rsvp_token_attempts
-     where token_hash = extensions.digest(convert_to((select result->>'token' from t_result where label = 'p_rate_mint'), 'UTF8'), 'sha256')) >= 11,
+     where token_hash = extensions.digest(convert_to((select result->>'token' from t_result where label = 'p_rate_mint'), 'UTF8'), 'sha256')) >= 31,
     'T-RATE-2: every attempt (including the rate-limited one) was logged unconditionally'
 );
 set local role authenticated;
@@ -345,24 +346,50 @@ insert into t_result (label, result) select 'p3_mint', public.rpc_mint_rsvp_toke
     'f2100000-0000-4000-8000-000000000051'::uuid, (select (result->'proposal'->>'id')::uuid from t_result where label = 'p3_create'));
 
 reset role;
--- T-WEB-COUNTER-DENY: counter is not a permitted web action at all.
-select throws_ok(
-    format($$select public.rpc_respond_proposal_web(%L, 'counter', null, 'America/Vancouver', now() + interval '1 day',
-        '[{"candidate_idx":0,"starts_at_utc":"2026-09-26T19:00:00Z","ends_at_utc":"2026-09-26T20:00:00Z","duration_min":60}]'::jsonb)$$,
-        (select result->>'token' from t_result where label = 'p3_mint')),
-    '22023', null, 'T-WEB-COUNTER-DENY: rpc_respond_proposal_web rejects action=counter outright (web counter mints nothing)'
+-- T-WEB-COUNTER-* (pre-gate F3 flip): counter IS a permitted web action -- it rides
+-- rpc_respond_proposal unchanged, bumps current_revision (derived-revoking this very
+-- token), and mints NO new rsvp_tokens row (SA's actual rule: never mint a capability
+-- addressed to the proposer from the web path).
+insert into t_result (label, result) select 'p3_web_counter', public.rpc_respond_proposal_web(
+    (select result->>'token' from t_result where label = 'p3_mint'), 'counter', null,
+    'America/Vancouver', now() + interval '1 day',
+    '[{"candidate_idx":0,"starts_at_utc":"2026-09-26T19:00:00Z","ends_at_utc":"2026-09-26T20:00:00Z","duration_min":60}]'::jsonb);
+select is((select result->>'outcome' from t_result where label = 'p3_web_counter'), 'applied', 'T-WEB-COUNTER-1: web counter applies through the unchanged rpc_respond_proposal');
+select is((select (result->'proposal'->>'current_revision')::int from t_result where label = 'p3_web_counter'), 2, 'T-WEB-COUNTER-2: the counter created revision 2');
+select is(
+    (select count(*)::int from public.rsvp_tokens
+     where proposal_id = (select (result->'proposal'->>'id')::uuid from t_result where label = 'p3_create')
+       and revision_at_mint = 2),
+    0,
+    'T-WEB-COUNTER-3: the web counter minted NO new rsvp_tokens row'
 );
-
--- T-WEB-MISMATCH: an out-of-range candidate_idx is validated by the UNCHANGED underlying
--- rpc_respond_proposal, not specially bypassed or ignored by the web wrapper -- proving
--- the wrapper adds no separate trust path for caller-supplied response fields.
+-- A DIFFERENT action on the consumed token hits the cross-action guard (contract SA
+-- single-effective-use: the counter consumed this token's one response).
 select throws_ok(
-    format($$select public.rpc_respond_proposal_web(%L, 'accept', 99)$$, (select result->>'token' from t_result where label = 'p3_mint')),
+    format('select public.rpc_respond_proposal_web(%L, %L, 0)',
+        (select result->>'token' from t_result where label = 'p3_mint'), 'accept'),
+    '22023', null,
+    'T-WEB-COUNTER-4: accept after the counter on the same token raises the cross-action guard');
+
+-- T-WEB-MISMATCH / T-WEB-DECLINE moved to a fresh proposal (p3b): p3 is countered now.
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-000000021a01","role":"authenticated"}';
+insert into t_result (label, result) select 'p3b_create', public.rpc_create_proposal(
+    'f2100000-0000-4000-8000-0000000000b0'::uuid, 'Web decline proposal 2', 'America/Toronto', now() + interval '2 days',
+    '[{"candidate_idx":0,"starts_at_utc":"2026-09-27T18:00:00Z","ends_at_utc":"2026-09-27T19:00:00Z","duration_min":60}]'::jsonb
+);
+insert into t_result (label, result) select 'p3b_mint', public.rpc_mint_rsvp_token(
+    'f2100000-0000-4000-8000-0000000000b1'::uuid, (select (result->'proposal'->>'id')::uuid from t_result where label = 'p3b_create'));
+reset role;
+-- T-WEB-MISMATCH: an out-of-range candidate_idx is validated by the UNCHANGED underlying
+-- rpc_respond_proposal, not specially bypassed or ignored by the web wrapper.
+select throws_ok(
+    format($$select public.rpc_respond_proposal_web(%L, 'accept', 99)$$, (select result->>'token' from t_result where label = 'p3b_mint')),
     '22023', null, 'T-WEB-MISMATCH: an out-of-range candidate_idx propagates rpc_respond_proposal''s own validation unchanged'
 );
 
 insert into t_result (label, result) select 'p3_web_decline', public.rpc_respond_proposal_web(
-    (select result->>'token' from t_result where label = 'p3_mint'), 'decline');
+    (select result->>'token' from t_result where label = 'p3b_mint'), 'decline');
 select is((select result->>'outcome' from t_result where label = 'p3_web_decline'), 'applied', 'T-WEB-DECLINE: web decline applies');
 select is((select result->'proposal'->>'status' from t_result where label = 'p3_web_decline'), 'declined', 'T-WEB-DECLINE-2: proposal status=declined');
 set local role authenticated;
@@ -518,6 +545,13 @@ select ok(
     ),
     'T-GREP-4: no realtime.messages payload contains the live plaintext token'
 );
+
+-- Pre-gate F5: the five internal helpers must not be executable by anon/authenticated.
+select ok(not has_function_privilege('anon', 'public.rsvp_token_mac(uuid)', 'execute'), 'F5-1: anon cannot execute rsvp_token_mac');
+select ok(not has_function_privilege('authenticated', 'public.rsvp_token_mac(uuid)', 'execute'), 'F5-2: authenticated cannot execute rsvp_token_mac');
+select ok(not has_function_privilege('anon', 'public.rsvp_token_encode(uuid)', 'execute'), 'F5-3: anon cannot execute rsvp_token_encode');
+select ok(not has_function_privilege('authenticated', 'public.rsvp_verify_token_mac(text)', 'execute'), 'F5-4: authenticated cannot execute rsvp_verify_token_mac');
+select ok(not has_function_privilege('anon', 'public.rsvp_base32_decode(text, int)', 'execute'), 'F5-5: anon cannot execute rsvp_base32_decode');
 
 select * from finish();
 rollback;

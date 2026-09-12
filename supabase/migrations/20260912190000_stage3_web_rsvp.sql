@@ -88,7 +88,7 @@ create table public.rsvp_tokens (
     constraint rsvp_tokens_expiry_after_created_check check (expires_at > created_at),
     constraint rsvp_tokens_recipient_not_minter_check check (recipient_user_id <> minted_by),
     constraint rsvp_tokens_consumed_action_check check (
-        consumed_action is null or consumed_action in ('accept', 'decline')
+        consumed_action is null or consumed_action in ('accept', 'decline', 'counter')
     ),
     constraint rsvp_tokens_consumed_action_iff_consumed_at_check check (
         (consumed_action is not null) = (consumed_at is not null)
@@ -182,7 +182,7 @@ $$;
 
 comment on function public.rsvp_base32_encode(bytea) is 'Crockford-alphabet (lowercased) base32 encoding of an arbitrary byte string, via numeric base conversion (no fixed-width bit-shift limit). Not grant-reachable; pure/immutable helper.';
 
-revoke all on function public.rsvp_base32_encode(bytea) from public;
+revoke all on function public.rsvp_base32_encode(bytea) from public, anon, authenticated;
 
 create or replace function public.rsvp_base32_decode(p_text text, p_byte_len int)
 returns bytea
@@ -227,7 +227,7 @@ $$;
 
 comment on function public.rsvp_base32_decode(text, int) is 'Inverse of rsvp_base32_encode: decodes to exactly p_byte_len bytes, or NULL for any malformed/out-of-alphabet input (garbage never raises -- callers treat NULL as "invalid token", contract §1 no-presence-oracle rule). Not grant-reachable.';
 
-revoke all on function public.rsvp_base32_decode(text, int) from public;
+revoke all on function public.rsvp_base32_decode(text, int) from public, anon, authenticated;
 
 -- =====================================================================================
 -- 4. Token derivation + presentation (contract §1: "token = base32url(token_id) || '.' ||
@@ -255,7 +255,7 @@ $$;
 
 comment on function public.rsvp_token_mac(uuid) is 'Deterministic 128-bit MAC over a token_id (council/stage3-web-rsvp-security-opus.md §1). Never granted to any role -- reachable only from inside the SECURITY DEFINER RPCs below (their bypass-RLS context is what lets this read rsvp_token_hmac_keys), exactly like pair_invite_code.';
 
-revoke all on function public.rsvp_token_mac(uuid) from public;
+revoke all on function public.rsvp_token_mac(uuid) from public, anon, authenticated;
 
 create or replace function public.rsvp_token_encode(p_token_id uuid)
 returns text
@@ -270,7 +270,7 @@ $$;
 
 comment on function public.rsvp_token_encode(uuid) is 'Builds the one presented token string for a token_id: base32(id-bytes) . base32(mac). Deterministic -- a mint replay re-derives the identical string without ever having stored it (contract §1/§2).';
 
-revoke all on function public.rsvp_token_encode(uuid) from public;
+revoke all on function public.rsvp_token_encode(uuid) from public, anon, authenticated;
 
 -- Constant-time verification: recovers token_id from a presented string, or NULL for
 -- anything malformed or forged -- BEFORE any table lookup (contract §1: "the MAC rejects
@@ -304,6 +304,13 @@ begin
     v_id_part  := substr(p_token, 1, v_dot_pos - 1);
     v_mac_part := substr(p_token, v_dot_pos + 1);
 
+    -- Exact-length guard (pre-gate F4b): base32 of 16 bytes is exactly 26 chars, and
+    -- rsvp_base32_decode is not injective on over-long input ('0'||enc decodes the same) --
+    -- reject anything else before decoding, as malleability defence-in-depth.
+    if length(v_id_part) <> 26 or length(v_mac_part) <> 26 then
+        return null;
+    end if;
+
     v_id_bytes := public.rsvp_base32_decode(v_id_part, 16);
     if v_id_bytes is null or octet_length(v_id_bytes) <> 16 then
         return null;
@@ -335,7 +342,7 @@ $$;
 
 comment on function public.rsvp_verify_token_mac(text) is 'Recovers token_id from a presented RSVP token string iff its MAC verifies (constant-time double-HMAC compare), else NULL. Never a row lookup, never an exception on garbage input -- callers fold NULL into the single opaque invalid_or_unavailable shape (contract §1).';
 
-revoke all on function public.rsvp_verify_token_mac(text) from public;
+revoke all on function public.rsvp_verify_token_mac(text) from public, anon, authenticated;
 
 -- =====================================================================================
 -- 5. rsvp_resolve_token: the shared "token verification helper" (contract §A/§1) --
@@ -381,7 +388,9 @@ begin
     begin
         v_ip := p_client_ip::inet;
     exception when others then
-        v_ip := null;
+        -- Pre-gate F8: an unparseable client IP (x-forwarded-for is client-controlled)
+        -- must not SKIP the IP limit -- fold garbage into one shared bucket instead.
+        v_ip := case when p_client_ip is null then null else '0.0.0.0'::inet end;
     end;
 
     -- Unconditional logging (contract §1): even a forged/garbage/oversized token is logged
@@ -393,7 +402,10 @@ begin
     from public.rsvp_token_attempts
     where token_hash = v_token_hash and attempted_at > now() - interval '15 minutes';
 
-    if v_token_attempts > 10 then
+    -- 30, not 10 (pre-gate F8): each web interaction resolves the token 2-3 times
+    -- (pre-render + respond) and messaging-app link unfurlers burn more -- 10 dead-ended
+    -- a perfectly valid link. Brute force is constrained by the 128-bit MAC, not this.
+    if v_token_attempts > 30 then
         return; -- opaque: rate-limited, identical shape to every other failure
     end if;
 
@@ -670,6 +682,26 @@ begin
         return jsonb_build_object('outcome', 'invalid_or_unavailable');
     end if;
 
+    -- Pre-gate F9: a non-live token gets ONLY the state plus the proposer's name for the
+    -- edge-page copy -- never candidates/deadline/title. Without this, a counter-revoked
+    -- link kept tailing the LIVE negotiation (new revision's candidates, new deadline)
+    -- even though its respond capability was revoked. For a live token,
+    -- rsvp_resolve_token has already proven current_revision = revision_at_mint, so the
+    -- projection below is exactly the revision the token was minted for.
+    if v_state <> 'live' then
+        select jsonb_build_object(
+            'outcome', 'ok',
+            'state', v_state,
+            'proposer_display_name', coalesce(prof_proposer.display_name, 'Someone')
+        )
+        into v_result
+        from public.proposal_revisions v_revision
+        left join public.profiles prof_proposer on prof_proposer.user_id = v_revision.author_id
+        where v_revision.proposal_id = v_proposal.id
+          and v_revision.revision_no = v_token_row.revision_at_mint;
+        return coalesce(v_result, jsonb_build_object('outcome', 'ok', 'state', v_state));
+    end if;
+
     select jsonb_build_object(
         'outcome', 'ok',
         'state', v_state,
@@ -771,11 +803,13 @@ declare
     v_saved_claims  text;
     v_result        jsonb;
 begin
-    -- Web counter mints nothing (contract §2: it would let a link holder manufacture a
-    -- fresh capability -- a privilege-escalation loop). Only accept/decline are reachable
-    -- through this path; rejected before any token is even looked at.
-    if p_action not in ('accept', 'decline') then
-        raise exception 'p_action must be accept or decline (web counter is not permitted)'
+    -- Contract §B: accept/decline/COUNTER are all reachable from the web (pre-gate F3:
+    -- §A's "web counter mints nothing" forbids minting a token to the proposer, not the
+    -- counter action itself -- the counter rides rpc_respond_proposal unchanged, bumps
+    -- current_revision, and thereby derived-revokes this very token). No rsvp_tokens row
+    -- is ever created here.
+    if p_action not in ('accept', 'decline', 'counter') then
+        raise exception 'p_action must be accept, decline, or counter'
             using errcode = '22023';
     end if;
 
