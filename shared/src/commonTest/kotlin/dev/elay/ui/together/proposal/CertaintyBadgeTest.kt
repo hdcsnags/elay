@@ -9,24 +9,24 @@ import kotlin.test.assertEquals
 class CertaintyBadgeTest {
     @Test
     fun everyCertaintyHasItsExactSelfPerspectiveLabel() {
-        assertEquals("Free per calendar", certaintyLabel(Certainty.FreePerCalendar))
-        assertEquals("Free on ELAY (no external calendar)", certaintyLabel(Certainty.FreePerElay))
-        assertEquals("Free on ELAY · Calendar not synced recently", certaintyLabel(Certainty.Unknown))
+        assertEquals("Free · matches your busy times", certaintyLabel(Certainty.FreePerCalendar))
+        assertEquals("Free on ELAY", certaintyLabel(Certainty.FreePerElay))
+        assertEquals("Availability not checked", certaintyLabel(Certainty.Unknown))
         assertEquals("You have a scheduled block at this time", certaintyLabel(Certainty.Busy))
     }
 
     @Test
     fun everyCertaintyHasAFullSpokenAccessibilityDescription() {
         assertEquals(
-            "Availability verified with external calendar: Free",
+            "Free: no conflicts with your schedule or your marked busy times",
             certaintyAccessibilityDescription(Certainty.FreePerCalendar),
         )
         assertEquals(
-            "Free on ELAY. External calendar not connected",
+            "Free: no conflicts on your ELAY schedule",
             certaintyAccessibilityDescription(Certainty.FreePerElay),
         )
         assertEquals(
-            "Free on ELAY. External calendar was not synced recently",
+            "Availability could not be checked for this time",
             certaintyAccessibilityDescription(Certainty.Unknown),
         )
         assertEquals(

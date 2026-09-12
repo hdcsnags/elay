@@ -28,12 +28,14 @@ interface AvailabilityRepository {
      * "Manual provider ships as UI (one sheet, §B)"). [busyId] is client-generated and reused by a
      * later [deleteManualBusy] call against the same row; `source_tag` is never a parameter here —
      * the server hard-codes `'manual'` (contract: "client-supplied tags forbidden"). */
+    @Suppress("LongParameterList") // operation identity + interval + zone + optional label (wire shape)
     suspend fun upsertManualBusy(
         operationId: String,
         busyId: String,
         startsAt: Instant,
         endsAt: Instant,
         originZoneId: String,
+        label: String? = null,
     ): ExternalBusyResult
 
     /** `rpc_delete_external_busy` — removes a previously-upserted manual busy row by the same

@@ -38,6 +38,7 @@ internal class FakeAvailabilityTransport : AvailabilityTransport {
         val startsAtUtc: String,
         val endsAtUtc: String,
         val originZoneId: String,
+        val label: String? = null,
     )
 
     data class DeleteCall(
@@ -57,8 +58,9 @@ internal class FakeAvailabilityTransport : AvailabilityTransport {
         startsAtUtc: String,
         endsAtUtc: String,
         originZoneId: String,
+        label: String?,
     ): ExternalBusyRpcEnvelopeDto {
-        lastUpsertCall = UpsertCall(operationId, busyId, startsAtUtc, endsAtUtc, originZoneId)
+        lastUpsertCall = UpsertCall(operationId, busyId, startsAtUtc, endsAtUtc, originZoneId, label)
         upsertError?.let { throw it }
         return upsertResult ?: error("upsertResult not scripted for this test")
     }

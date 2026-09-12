@@ -25,3 +25,8 @@
 | B7 (client data, dispatched with A6; lead diffs at merge) | `shared/src/commonMain/kotlin/dev/elay/domain/availability/**` (new), `data/remote/dto/AvailabilityDtos.kt`, `data/remote/impl/SupabaseAvailabilityRepository.kt` (new), matching commonTest |
 | C6 (UI, after B7) | certainty labels at composer/responder call-sites (`ui/together/proposal/**`), the manual busy sheet + capacity gauge (`ui/plan/**`), matching commonTest |
 | Lead | contract freeze, DI/user-scope, fixture diff, merges, emulator E2E, gate + CI + pre-gate verification |
+
+## Post-pre-gate lead amendments (2026-09-12, binding)
+5. **F16/F21 copy override of §B's literal strings**: until the Google adapter exists, `free_per_calendar` copy must not claim an external calendar ("Free · matches your busy times" / a11y "no conflicts with your schedule or your marked busy times"), and `unknown` must never assert free ("Availability not checked"). When the adapter lands, copy gains a source-aware variant.
+6. **F15/F25 formally deferred to the availability-surfacing pass** (next UI round): consuming partner-directed `rpc_proposal_conflict_hints` in the composer, and the staleness copy fed by `rpc_my_availability_sources()` (both server sides are shipped + pgTAP-pinned; DTO window keys fixed). Until then the app surfaces SELF certainty only.
+7. Composer hint refresh is debounced 400ms (F22); the manual upsert carries `p_label` end-to-end (F23); `fn_sync_external_busy` rejects `source_tag='manual'` (F12); the hints attempts table self-purges >1 day (F8).

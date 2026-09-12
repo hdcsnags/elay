@@ -41,14 +41,17 @@ internal interface AvailabilityTransport {
     suspend fun fetchMySources(): List<AvailabilitySourceDto>
 
     /** `rpc_upsert_external_busy(p_operation_id, p_id, p_starts_at_utc, p_ends_at_utc,
-     * p_origin_tz)` — no `p_source_tag` parameter: the server hard-codes `'manual'` (contract:
-     * "client-supplied tags forbidden"). */
+     * p_origin_tz, p_label)` — no `p_source_tag` parameter: the server hard-codes `'manual'`
+     * (contract: "client-supplied tags forbidden"). `p_label` verified against the shipped
+     * migration at the pre-gate round (F23: it was silently dropped before). */
+    @Suppress("LongParameterList") // operation identity + interval + zone + optional label (wire shape)
     suspend fun upsertManualBusy(
         operationId: String,
         busyId: String,
         startsAtUtc: String,
         endsAtUtc: String,
         originZoneId: String,
+        label: String?,
     ): ExternalBusyRpcEnvelopeDto
 
     /** `rpc_delete_external_busy(p_operation_id, p_id)`. */
@@ -90,6 +93,7 @@ private class SupabaseAvailabilityTransport(
         startsAtUtc: String,
         endsAtUtc: String,
         originZoneId: String,
+        label: String?,
     ): ExternalBusyRpcEnvelopeDto =
         client.postgrest
             .rpc(
@@ -100,6 +104,7 @@ private class SupabaseAvailabilityTransport(
                     put("p_starts_at_utc", startsAtUtc)
                     put("p_ends_at_utc", endsAtUtc)
                     put("p_origin_tz", originZoneId)
+                    put("p_label", label)
                 },
             ).decodeAs()
 
@@ -222,10 +227,11 @@ class SupabaseAvailabilityRepository internal constructor(
         startsAt: Instant,
         endsAt: Instant,
         originZoneId: String,
+        label: String?,
     ): ExternalBusyResult =
         runCatchingSuspend {
             transport
-                .upsertManualBusy(operationId, busyId, startsAt.toString(), endsAt.toString(), originZoneId)
+                .upsertManualBusy(operationId, busyId, startsAt.toString(), endsAt.toString(), originZoneId, label)
                 .toResult()
         }.getOrElse { it.toFailedExternalBusyResult() }
 

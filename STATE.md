@@ -15,6 +15,15 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 4 PRE-GATE ROUND: 7 blockers found — honesty defects — all fixed)
+
+**Opus verification (conf 0.88, 4 rolled-back repro scripts, 15/15 function file↔live byte-match) blocked closure on HONESTY, not SQL:** the certainty ladder/coalescing/grants all survived attack, but (F16) every `free_per_calendar` is manual-derived in this build while the a11y string claimed "verified with external calendar"; (F21) the rate-limited opaque shape rendered as a positive "Free on ELAY"; (F22) zero debounce meant ~2 candidate adjustments burned the 60/15min budget and flipped labels to that false Free; (F23) the manual sheet's label was silently dropped on the wire; (F24) DTO window keys never matched the server (permanently null); (F15/F25) two contract clauses had no client consumer; (F28) **my own evidence package failed — `stage4-e2e-02` and `-03` were byte-identical, both named for a composer capture that wasn't in frame** (the prose was honest; the artifacts weren't).
+
+**All fixed this round:** honest copy (live-proven: responder chip now reads "Free · matches your busy times"); Unknown never asserts free; 400ms debounce (+ test pinning coalescing); `p_label` end-to-end; window keys corrected; `fn_sync` rejects 'manual' (F12); attempts self-purge (F8); "unconditional log" comment corrected (F7); F15/F25 **formally deferred** by contract amendment 6 (server sides shipped+pinned). Evidence recaptured honestly: the composer's own badge is now in frame — reading **"You have a scheduled block at this time"**, the exact Busy the verifier predicted the cropped frame was hiding. Corrections: A6's migration is 881 lines (not 870); the old `-03` duplicate is deleted.
+
+**Gate green (311 host tests); pgTAP rerun next to confirm post-SQL-fix state; then re-verify + closure.**
+
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 4 BUILT + LIVE: honest availability end-to-end)
 
 **All three Stage 4 seats merged same-session** (A6 SQL 870 lines + 94 pgTAP; B7 client data 21 tests; C6 UI — certainty badges, manual "+ Busy" sheet, capacity gauge — 311 host tests total). **pgTAP 613/613** (22 suites). Lead work at merge: 0015's hints key-set pin gains `certainty`; B7's params reconciled to A6's real signatures (`p_id`, optional `p_label` — the label is owner-only, never in peer projections); **true-upsert fix** (A6 treated a client-generated id as update-only → P0002; house convention inserts — T-CLIENTTAG-3 now pins the synced-row guard via the pk collision); DI wiring (AvailabilityRepository into UserGraph/App.kt + the DI test's noop).

@@ -529,6 +529,12 @@ declare
     v_owner_tz text;
     v_count    int;
 begin
+    -- Pre-gate F12: the sync path must never touch hand-entered rows -- an edge-function
+    -- bug could otherwise wipe a user's manual entries AND re-stamp the source as
+    -- fresh+covering (a confident free_per_calendar over an emptied calendar).
+    if p_source_tag = 'manual' then
+        raise exception 'fn_sync_external_busy may not sync the manual source' using errcode = '22023';
+    end if;
     if p_owner is null then
         raise exception 'p_owner is required' using errcode = '22004';
     end if;
@@ -651,6 +657,9 @@ as $$
 declare
     v_count int;
 begin
+    -- Opportunistic retention (pre-gate F8): drop attempt rows older than a day so the
+    -- table cannot grow unbounded; cheap because of the (caller, attempted_at) index.
+    delete from public.conflict_hints_attempts where attempted_at < now() - interval '1 day';
     insert into public.conflict_hints_attempts (caller_id) values (p_caller);
 
     select count(*) into v_count

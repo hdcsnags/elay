@@ -194,6 +194,7 @@ private class NoopAvailabilityRepository : dev.elay.domain.availability.Availabi
         startsAt: kotlinx.datetime.Instant,
         endsAt: kotlinx.datetime.Instant,
         originZoneId: String,
+        label: String?,
     ) = dev.elay.domain.availability.ExternalBusyResult
         .Failed("noop", retryable = false)
 

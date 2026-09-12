@@ -14,6 +14,7 @@ data class UpsertManualBusyCall(
     val startsAt: Instant,
     val endsAt: Instant,
     val originZoneId: String,
+    val label: String? = null,
 )
 
 /** One recorded [AvailabilityRepository.deleteManualBusy] call. */
@@ -68,8 +69,9 @@ class FakeAvailabilityRepository : AvailabilityRepository {
         startsAt: Instant,
         endsAt: Instant,
         originZoneId: String,
+        label: String?,
     ): ExternalBusyResult {
-        upsertCalls += UpsertManualBusyCall(operationId, busyId, startsAt, endsAt, originZoneId)
+        upsertCalls += UpsertManualBusyCall(operationId, busyId, startsAt, endsAt, originZoneId, label)
         return nextUpsertResult.also { nextUpsertResult = null } ?: notScriptedBusyResult()
     }
 

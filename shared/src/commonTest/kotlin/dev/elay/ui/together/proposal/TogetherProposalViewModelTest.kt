@@ -22,6 +22,7 @@ import dev.elay.ui.together.fake.FakePairRepository
 import dev.elay.ui.together.proposal.fake.FakeAvailabilityRepository
 import dev.elay.ui.together.proposal.fake.FakeProposalRepository
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -387,11 +388,13 @@ class TogetherProposalViewModelTest {
         runTest {
             val availability = FakeAvailabilityRepository()
             val vm = viewModel(availabilityRepository = availability)
+            advanceTimeBy(500)
             runCurrent()
 
             availability.nextHintsResult =
                 SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, false, emptyList(), Certainty.FreePerCalendar)))
             vm.openComposer()
+            advanceTimeBy(500)
             runCurrent()
 
             assertEquals(1, availability.hintsCalls.size)
@@ -409,11 +412,15 @@ class TogetherProposalViewModelTest {
             for (certainty in Certainty.entries) {
                 val availability = FakeAvailabilityRepository()
                 val vm = viewModel(availabilityRepository = availability)
+                advanceTimeBy(500)
+                advanceTimeBy(500)
                 runCurrent()
 
                 availability.nextHintsResult =
                     SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, false, emptyList(), certainty)))
                 vm.openComposer()
+                advanceTimeBy(500)
+                advanceTimeBy(500)
                 runCurrent()
 
                 assertEquals(
@@ -430,10 +437,14 @@ class TogetherProposalViewModelTest {
         runTest {
             val availability = FakeAvailabilityRepository()
             val vm = viewModel(availabilityRepository = availability)
+            advanceTimeBy(500)
+            advanceTimeBy(500)
             runCurrent()
 
             availability.nextHintsResult = SelfConflictHintsResult.Failed("rate_limited", retryable = true)
             vm.openComposer()
+            advanceTimeBy(500)
+            advanceTimeBy(500)
             runCurrent()
 
             assertEquals(
@@ -445,25 +456,27 @@ class TogetherProposalViewModelTest {
         }
 
     @Test
-    fun editingACandidateRefetchesSelfHintsAndAStaleInFlightResponseIsDiscarded() =
+    fun rapidCandidateEditsCoalesceIntoOneDebouncedHintsFetchAndTheLatestResultLands() =
         runTest {
             val availability = FakeAvailabilityRepository()
             val vm = viewModel(availabilityRepository = availability)
             runCurrent()
             vm.openComposer()
+            advanceTimeBy(500)
             runCurrent()
+            val callsAfterOpen = availability.hintsCalls.size
 
-            // Two edits fire before either's fetch resolves — [FakeAvailabilityRepository.hintsResultQueue]
-            // scripts both calls up front, consumed in the order the ViewModel's own coroutines run
-            // (FIFO): the first (now-superseded) request's result must never land.
-            availability.hintsResultQueue +=
-                SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, true, emptyList(), Certainty.FreePerElay)))
+            // Two edits inside one debounce window (pre-gate F22): the first request is
+            // superseded during the delay and never reaches the repository -- exactly ONE
+            // fetch fires, and its result lands.
             availability.hintsResultQueue +=
                 SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, true, emptyList(), Certainty.Busy)))
             vm.stepComposerCandidateStart(0, COMPOSER_TIME_STEP_MINUTES)
             vm.stepComposerCandidateStart(0, COMPOSER_TIME_STEP_MINUTES)
+            advanceTimeBy(500)
             runCurrent()
 
+            assertEquals(callsAfterOpen + 1, availability.hintsCalls.size)
             assertEquals(
                 Certainty.Busy,
                 vm.state.value.composer

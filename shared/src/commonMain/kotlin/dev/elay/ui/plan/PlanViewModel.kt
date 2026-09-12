@@ -224,6 +224,7 @@ class PlanViewModel(
                     startsAt = start,
                     endsAt = end,
                     originZoneId = TimeZone.currentSystemDefault().id,
+                    label = label,
                 )
             when (result) {
                 ExternalBusyResult.Applied ->

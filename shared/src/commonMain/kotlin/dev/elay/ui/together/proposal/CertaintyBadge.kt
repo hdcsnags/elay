@@ -33,9 +33,14 @@ private val BUSY_CONTAINER_DARK = Color(0xFF3E2723)
  */
 fun certaintyLabel(certainty: Certainty): String =
     when (certainty) {
-        Certainty.FreePerCalendar -> "Free per calendar"
-        Certainty.FreePerElay -> "Free on ELAY (no external calendar)"
-        Certainty.Unknown -> "Free on ELAY · Calendar not synced recently"
+        // Pre-gate F16 (lead amendment over §B's literal copy): every free_per_calendar in
+        // this build is derived from the user's own marked busy times (no external calendar
+        // can exist until the Google adapter lands), so the copy must not claim one.
+        Certainty.FreePerCalendar -> "Free · matches your busy times"
+        Certainty.FreePerElay -> "Free on ELAY"
+        // Pre-gate F21: unknown must never assert "free" — the server may have declined to
+        // look (rate limit) or its coverage may not reach this candidate.
+        Certainty.Unknown -> "Availability not checked"
         Certainty.Busy -> "You have a scheduled block at this time"
     }
 
@@ -43,9 +48,9 @@ fun certaintyLabel(certainty: Certainty): String =
  * label text a badge shows sighted users. */
 fun certaintyAccessibilityDescription(certainty: Certainty): String =
     when (certainty) {
-        Certainty.FreePerCalendar -> "Availability verified with external calendar: Free"
-        Certainty.FreePerElay -> "Free on ELAY. External calendar not connected"
-        Certainty.Unknown -> "Free on ELAY. External calendar was not synced recently"
+        Certainty.FreePerCalendar -> "Free: no conflicts with your schedule or your marked busy times"
+        Certainty.FreePerElay -> "Free: no conflicts on your ELAY schedule"
+        Certainty.Unknown -> "Availability could not be checked for this time"
         Certainty.Busy -> "Conflict: Already busy during this time"
     }
 

@@ -40,8 +40,8 @@ data class AvailabilitySourceDto(
     val status: String,
     @SerialName("last_synced_at") val lastSyncedAt: String? = null,
     @SerialName("freshness_ttl_minutes") val freshnessTtlMinutes: Int,
-    @SerialName("window_start") val windowStart: String? = null,
-    @SerialName("window_end") val windowEnd: String? = null,
+    @SerialName("window_start_utc") val windowStart: String? = null,
+    @SerialName("window_end_utc") val windowEnd: String? = null,
 )
 
 fun AvailabilitySourceDto.toDomain(): AvailabilitySource =
@@ -92,7 +92,7 @@ data class ConflictHintDto(
     @SerialName("candidate_idx") val candidateIdx: Int,
     @SerialName("has_conflict") val hasConflict: Boolean,
     @SerialName("busy_windows") val busyWindows: List<BusyWindowDto> = emptyList(),
-    val certainty: String,
+    val certainty: String? = null,
 )
 
 fun ConflictHintDto.toDomain(): BusySnapshot =

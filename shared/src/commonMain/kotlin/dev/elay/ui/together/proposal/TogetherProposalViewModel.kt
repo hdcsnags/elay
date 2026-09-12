@@ -132,6 +132,8 @@ private fun List<String>.joinAsCalmList(): String =
  * part of the frozen client surface this round (contracts/stage2-timelock.md), so the composer and
  * response flows below ship with no self/partner busy-conflict hinting — see this seat's report.
  */
+private const val COMPOSER_HINTS_DEBOUNCE_MS = 400L
+
 @Suppress(
     "TooManyFunctions", // one small action per composer/response affordance (house pattern, e.g. PlanViewModel)
     "LongParameterList", // both repositories + scope/identity + zone/clock/id-factory test seams
@@ -423,6 +425,11 @@ class TogetherProposalViewModel(
         val requestId = ++composerHintsRequestId
         val candidates = composer.toCandidates()
         scope.launch {
+            // Debounce (pre-gate F22): a fidgety edit burst must coalesce into ONE call —
+            // undebounced, 36 stepper taps burned 36 of the server's 60/15min budget and
+            // then rate-limited the user into Unknown labels.
+            kotlinx.coroutines.delay(COMPOSER_HINTS_DEBOUNCE_MS)
+            if (requestId != composerHintsRequestId) return@launch // superseded during debounce
             val hints = fetchSelfHints(candidates)
             if (requestId != composerHintsRequestId) return@launch // superseded by a later edit
             updateComposer { it.withSelfHints(hints) }

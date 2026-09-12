@@ -29,21 +29,21 @@ private const val MANUAL_SOURCE_FIXTURE = """
   "status": "connected",
   "last_synced_at": "2026-09-12T19:00:00Z",
   "freshness_ttl_minutes": 43200,
-  "window_start": "2026-09-11T00:00:00Z",
-  "window_end": "2026-10-17T00:00:00Z"
+  "window_start_utc": "2026-09-11T00:00:00Z",
+  "window_end_utc": "2026-10-17T00:00:00Z"
 }
 """
 
 /** A source that has never synced (contract: the deferred Google adapter's row before its first
- * `fn_sync_external_busy` run) — all three of last_synced_at/window_start/window_end absent. */
+ * `fn_sync_external_busy` run) — all three of last_synced_at/window_start_utc/window_end_utc absent. */
 private const val NEVER_SYNCED_GOOGLE_SOURCE_FIXTURE = """
 {
   "source_tag": "google",
   "status": "not_connected",
   "last_synced_at": null,
   "freshness_ttl_minutes": 360,
-  "window_start": null,
-  "window_end": null
+  "window_start_utc": null,
+  "window_end_utc": null
 }
 """
 
