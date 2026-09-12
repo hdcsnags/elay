@@ -1,0 +1,24 @@
+{
+  "outcome": "ok",
+  "state": "live",
+  "title": "Date night",
+  "proposer_display_name": "Alex",
+  "recipient_display_name": "Jordan",
+  "recipient_home_tz": "America/Vancouver",
+  "proposer_origin_tz": "America/Toronto",
+  "candidates": [
+    {
+      "candidate_idx": 0,
+      "starts_at_utc": "2026-09-14T23:00:00Z",
+      "ends_at_utc": "2026-09-15T01:00:00Z",
+      "duration_min": 120
+    },
+    {
+      "candidate_idx": 1,
+      "starts_at_utc": "2026-09-15T23:00:00Z",
+      "ends_at_utc": "2026-09-16T01:00:00Z",
+      "duration_min": 120
+    }
+  ],
+  "deadline": "2026-09-16T19:00:00Z"
+}

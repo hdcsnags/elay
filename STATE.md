@@ -15,6 +15,18 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 3 SERVER+WEB LANDED: web RSVP proven live end-to-end)
+
+**Seats A4 (SQL, 839-line migration + 74-assertion pgTAP) and E1 (edge function, ~1050-line index.ts, self-tested with a Node harness) merged; D1 (Stage 2 residuals) merged earlier this session.** pgTAP now **511/511** (21 suites).
+
+**Proven live (`supabase functions serve` + curl):** mint as the proposer (`rpc_mint_rsvp_token` → HMAC token + `discloses:[title,times,names]`) → GET renders the §B page (identity banner "Responding as a", countdown, dual-time candidate lines, `no-store`/`no-referrer`/`noindex` headers) → **no-JS form POST accept → "Time lock confirmed · On both plans" page, proposal accepted, EXACTLY two shared_lock blocks + two commitments server-side** (the contract's central guardrail: the web path IS `rpc_respond_proposal`). Forged token → opaque "link isn't available" (no oracle); post-accept GET and double-submit → calm "Already accepted" page (byte-identical receipt replay pinned at the SQL layer by T-WEB-REPLAY).
+
+**Lead fixes at merge (first live execution of unrunnable seat code):** PL/pgSQL composite-target INTO (record unpack ×2); `left(bytea,n)` doesn't exist → `substr`; **receipt-replay had to run BEFORE the wrapper's liveness gate** (T-WEB-REPLAY caught it: post-accept double-submit returned conflict instead of the applied receipt; different-action now surfaces the 22023 cross-action guard from the wrapper); the 'Someone'-fallback test was defeated by handle_new_user firing on direct inserts (the seed.sql lesson again) → explicit profile delete + `Etc/UTC` zone coalesce in render data. E1-side reconciliation per the fixture-diff rule: A4's real shape is `{"outcome":"ok","state":…,"deadline":…}` (richer than E1's assumed ready/conflict split) + `p_client_ip` threaded from `x-forwarded-for` into both RPCs.
+
+**A4's flagged judgment call, ratified:** web operation_id derives from token_id ALONE (not token+action) — the only reading that makes the contract's required cross-action 22023 case reachable; the token is single-effective-use across actions.
+
+**Remaining Stage 3:** B5 (client mint surface) + C4 (share-link UI + disclosure copy) seats; then the stage E2E (share from the app → respond from a real browser) and pre-gate verification.
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 2 CLOSED)
 
 **Closure checklist, all with evidence:**

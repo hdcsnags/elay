@@ -384,6 +384,18 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Stage 3 web RSVP (contracts/stage3-web-rsvp.md, FROZEN; council/stage3-web-rsvp-security-opus.md
+# §A section 2): the link a proposal recipient opens from outside the app. It authenticates the
+# holder purely via the HMAC capability token in the URL path (never a Supabase session/JWT), so
+# Supabase Auth's own JWT check must be bypassed for this function only — verify_jwt = false.
+# All identity/authorization is instead performed inside rpc_get_rsvp_render_data /
+# rpc_respond_proposal_web via service-role calls (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY, the
+# standard function env — no entry needed here). Seat grant: E1 owns supabase/functions/rsvp/**
+# and this block only (contracts/stage3-web-rsvp.md seat grants table).
+[functions.rsvp]
+enabled = true
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

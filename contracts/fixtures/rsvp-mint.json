@@ -1,0 +1,8 @@
+{
+  "outcome": "applied",
+  "action": "mint_rsvp_token",
+  "token_id": "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
+  "token": "d1jxfqz8k3n5vwrtha6c72eqzm.f0kx9j2wrq5tvbc341hzse8pmn",
+  "expires_at": "2026-09-16T19:00:00Z",
+  "discloses": ["title", "times", "names"]
+}
