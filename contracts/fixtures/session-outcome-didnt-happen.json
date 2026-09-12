@@ -1,0 +1,17 @@
+{
+  "outcome": "applied",
+  "action": "record_session_outcome",
+  "session_outcome": {
+    "id": "7a7a7a7a-0002-4a7a-8a7a-000000000002",
+    "owner_id": "00000000-0000-0000-0000-000000000001",
+    "time_block_id": "66666666-6666-4666-8666-666666666666",
+    "outcome": "didnt_happen",
+    "planned_minutes": 30,
+    "actual_minutes": null,
+    "delta_minutes": null,
+    "shared_with_pair": false,
+    "version": 1,
+    "created_at": "2026-09-12T21:00:00Z",
+    "updated_at": "2026-09-12T21:00:00Z"
+  }
+}
