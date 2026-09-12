@@ -2,8 +2,9 @@
 -- wipes the sign-in state every live emulator session depends on (STATE 2026-09-12 noted
 -- this as a recurring cost). Idempotent (guarded per email); local dev only — seed.sql
 -- never runs against a hosted project via db push. Passwords are the documented local
--- test creds, not secrets. The handle_new_user trigger (20260912120000) does not fire on
--- direct inserts, so profiles are seeded explicitly below.
+-- test creds, not secrets. The handle_new_user trigger (20260912120000) DOES fire on these
+-- direct inserts (plain AFTER INSERT row trigger — verified in a dry run); the explicit
+-- profile insert below is a guarded no-op fallback kept in case the trigger is ever scoped.
 
 insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password,

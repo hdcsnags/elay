@@ -20,13 +20,12 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -219,10 +218,14 @@ private fun ProposalRpcEnvelopeDto.toResult(): ProposalResult =
         "conflict" -> {
             val revision = currentRevision
             val wireStatus = status
-            if (revision == null || wireStatus == null) {
-                ProposalResult.Failed("malformed_conflict_response", retryable = false)
-            } else {
-                ProposalResult.Conflict(revision, ProposalState.entries.first { it.wire == wireStatus })
+            val proposalState = wireStatus?.let { w -> ProposalState.entries.firstOrNull { it.wire == w } }
+            when {
+                revision != null && proposalState != null -> ProposalResult.Conflict(revision, proposalState)
+                // rpc_complete_lock's conflict shape carries only commitment_state — there is no
+                // revision to retry against, so it is a terminal domain failure, not a Conflict.
+                commitmentState != null ->
+                    ProposalResult.Failed("commitment_state:$commitmentState", retryable = false)
+                else -> ProposalResult.Failed("malformed_conflict_response", retryable = false)
             }
         }
         else -> ProposalResult.Failed("unexpected_outcome:$outcome", retryable = false)
@@ -277,8 +280,11 @@ class SupabaseProposalRepository internal constructor(
     private val mutableActive = MutableStateFlow<List<ProposalSummary>>(emptyList())
     private val mutableHistory = MutableStateFlow<List<ProposalSummary>>(emptyList())
 
-    /** Buffered by 1: a kick landing mid-fetch is not lost (mirrors [SupabasePairRepository]). */
-    private val kick = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** CONFLATED channel, not a SharedFlow: `MutableSharedFlow(replay = 0)` DISCARDS emissions
+     * while nobody is suspended collecting (pre-gate finding F10, 2026-09-12) — a kick landing
+     * mid-refetch was silently lost. The conflated channel retains the latest pulse until
+     * [refetchLoop] receives it (mirrors [SupabasePairRepository]'s kick). */
+    private val kick = Channel<Unit>(Channel.CONFLATED)
 
     private val refetchJob: Job = scope.launch { refetchLoop(invalidationHints) }
 
@@ -312,12 +318,12 @@ class SupabaseProposalRepository internal constructor(
      * [ProposalResult.Applied] — kicks a refetch so [observeActive]/[observeHistory] reflect the
      * change without waiting for an invalidation hint to arrive back over Realtime. */
     private suspend fun mutate(block: suspend () -> ProposalRpcEnvelopeDto): ProposalResult {
+        // toResult() (which maps DTO -> domain) runs INSIDE the catch: an unknown wire enum or
+        // a timestamp format change must degrade to Failed, never escape and crash the app
+        // (pre-gate finding F12, 2026-09-12).
         val result =
-            runCatchingSuspend { block() }.fold(
-                onSuccess = { it.toResult() },
-                onFailure = { it.toFailedResult() },
-            )
-        if (result is ProposalResult.Applied) kick.tryEmit(Unit)
+            runCatchingSuspend { block().toResult() }.getOrElse { it.toFailedResult() }
+        if (result is ProposalResult.Applied) kick.trySend(Unit)
         return result
     }
 
@@ -325,23 +331,32 @@ class SupabaseProposalRepository internal constructor(
      * in place (there is no error slot in the frozen `Flow<List<ProposalSummary>>` surface to
      * publish one into) and this still waits for the next signal before retrying — the same
      * "refetch, then wait" shape as [SupabasePairRepository]'s resync loop, minus the
-     * subscribe/resubscribe step this repository doesn't own. */
-    private suspend fun refetchLoop(invalidationHints: Flow<Unit>) {
-        val signals = merge(kick, invalidationHints)
-        while (currentCoroutineContext().isActive) {
-            refetch()
-            signals.first()
+     * subscribe/resubscribe step this repository doesn't own.
+     *
+     * The hint collector is armed BEFORE the first refetch and forwards into the conflated
+     * [kick] channel, so an invalidation landing mid-refetch is retained (F10). */
+    private suspend fun refetchLoop(invalidationHints: Flow<Unit>): Unit =
+        coroutineScope {
+            val forward = launch { invalidationHints.collect { kick.trySend(Unit) } }
+            try {
+                while (currentCoroutineContext().isActive) {
+                    refetch()
+                    kick.receive()
+                }
+            } finally {
+                forward.cancel()
+            }
         }
-    }
 
     private suspend fun refetch() {
-        runCatchingSuspend { transport.fetchActive() }
+        // Mapping runs inside the catch — see [mutate]'s F12 note.
+        runCatchingSuspend { transport.fetchActive().map { it.toDomain() } }
             .onFailure { println("ELAY proposal refetch failure (active): $it") }
             .getOrNull()
-            ?.let { dtos -> mutableActive.value = dtos.map { it.toDomain() } }
-        runCatchingSuspend { transport.fetchHistory() }
+            ?.let { mutableActive.value = it }
+        runCatchingSuspend { transport.fetchHistory().map { it.toDomain() } }
             .onFailure { println("ELAY proposal refetch failure (history): $it") }
             .getOrNull()
-            ?.let { dtos -> mutableHistory.value = dtos.map { it.toDomain() } }
+            ?.let { mutableHistory.value = it }
     }
 }

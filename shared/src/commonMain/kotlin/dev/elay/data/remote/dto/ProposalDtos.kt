@@ -229,8 +229,16 @@ fun ProposalSummaryDto.toDomain(): ProposalSummary =
 @Serializable
 data class ProposalRpcEnvelopeDto(
     val outcome: String,
-    val action: String,
+    /** Nullable: the server's CONFLICT envelopes carry no `action` key at all (see
+     * `contracts/fixtures/proposal-conflict.json` and the conflict branches in
+     * `20260912140000_rpc_stage2_timelock.sql`) — a required field made every real conflict
+     * decode throw and surface as a generic network failure instead of the calm conflict copy
+     * (pre-gate verification, Gemini finding 1, 2026-09-12). Applied envelopes always carry it. */
+    val action: String? = null,
     val proposal: ProposalSummaryDto? = null,
     @SerialName("current_revision") val currentRevision: Int? = null,
     val status: String? = null,
+    /** `rpc_complete_lock`'s conflict shape: `{"outcome":"conflict","commitment_state":…}` with
+     * no revision/status keys (same finding). */
+    @SerialName("commitment_state") val commitmentState: String? = null,
 )

@@ -11,3 +11,5 @@ CLAIMS UNDER TEST (all mine — attack them):
 
 DELIVERABLE: numbered findings, each tagged VERIFIED-OK / BUG (with repro) / RISK (with exploit sketch) / UNVERIFIED (with what you'd need). Quote file:line. End with JSON between BEGIN VERDICT/END VERDICT:
 {"lane":"pregate-verification","stage2_ready_to_close":true|false,"blocking_findings":[...],"nonblocking_findings":[...],"confidence":0..1}
+
+ADDENDUM (2026-09-12, after a failed dispatch): DO NOT run Gradle, builds, emulators, or any long process — this is a STATIC verification: read the migrations, tests, Kotlin, STATE.md, and screenshots (file list only) and reason about them. The pgTAP 402/402 and gate-green claims are inputs to assess for internal consistency, not for you to re-run. Deliver the COMPLETE numbered findings + BEGIN/END VERDICT JSON in your single final message — do not end your run "awaiting" anything.

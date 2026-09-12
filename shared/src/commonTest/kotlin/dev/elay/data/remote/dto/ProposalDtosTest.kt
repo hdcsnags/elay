@@ -192,13 +192,22 @@ private const val CREATE_ENVELOPE_FIXTURE = """
 }
 """
 
+/** The REAL wire shape (contracts/fixtures/proposal-conflict.json): a conflict envelope has
+ * NO `action` key and NO `proposal` key — a required `action` made every live conflict decode
+ * throw (pre-gate verification, Gemini finding 1, 2026-09-12). */
 private const val CONFLICT_ENVELOPE_FIXTURE = """
 {
+  "status": "countered",
   "outcome": "conflict",
-  "action": "respond_proposal",
-  "proposal": null,
-  "current_revision": 3,
-  "status": "countered"
+  "current_revision": 3
+}
+"""
+
+/** rpc_complete_lock's conflict shape — only `outcome` + `commitment_state` (same finding). */
+private const val COMPLETE_CONFLICT_ENVELOPE_FIXTURE = """
+{
+  "outcome": "conflict",
+  "commitment_state": "completed"
 }
 """
 
@@ -313,11 +322,24 @@ class ProposalDtosTest {
     fun conflictEnvelopeRoundTripsFixtureByteComparably() {
         val decoded = Json.decodeFromString(ProposalRpcEnvelopeDto.serializer(), CONFLICT_ENVELOPE_FIXTURE)
         val reencoded = wireJson.encodeToString(ProposalRpcEnvelopeDto.serializer(), decoded)
-        assertEquals(Json.parseToJsonElement(CONFLICT_ENVELOPE_FIXTURE), Json.parseToJsonElement(reencoded))
+        assertEquals(
+            stripNulls(Json.parseToJsonElement(CONFLICT_ENVELOPE_FIXTURE)),
+            stripNulls(Json.parseToJsonElement(reencoded)),
+        )
         assertEquals("conflict", decoded.outcome)
+        assertNull(decoded.action)
         assertEquals(3, decoded.currentRevision)
         assertEquals("countered", decoded.status)
         assertNull(decoded.proposal)
+    }
+
+    @Test
+    fun completeLockConflictEnvelopeDecodesCommitmentState() {
+        val decoded = Json.decodeFromString(ProposalRpcEnvelopeDto.serializer(), COMPLETE_CONFLICT_ENVELOPE_FIXTURE)
+        assertEquals("conflict", decoded.outcome)
+        assertEquals("completed", decoded.commitmentState)
+        assertNull(decoded.currentRevision)
+        assertNull(decoded.status)
     }
 
     /** `rpc_list_proposals` returns `{"items":[…],"next_cursor":…}` (verified against the live

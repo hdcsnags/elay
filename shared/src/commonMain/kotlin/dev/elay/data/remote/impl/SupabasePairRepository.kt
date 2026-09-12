@@ -24,6 +24,8 @@ import io.github.jan.supabase.realtime.realtime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,7 +35,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
@@ -258,8 +259,12 @@ class SupabasePairRepository internal constructor(
 
     private val mutableState = MutableStateFlow<PairState>(PairState.Loading)
 
-    /** Buffered by 1: a kick that lands while the loop is mid-fetch/mid-subscribe is not lost. */
-    private val kick = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** CONFLATED channel, not a SharedFlow: a `MutableSharedFlow(replay = 0)` DISCARDS emissions
+     * while nobody is suspended in `first()` (extraBufferCapacity only buffers for an
+     * already-subscribed slow collector), so a kick landing mid-fetch/mid-subscribe was silently
+     * lost — pre-gate finding F10, 2026-09-12. A conflated channel retains the latest pulse until
+     * [resyncLoop] receives it. */
+    private val kick = Channel<Unit>(Channel.CONFLATED)
 
     /** Keyed by parsed [Instant] rather than the raw wire string: `rpc_get_pair` and
      * `rpc_create_pair_invite` are two separate responses, so comparing their expiry strings
@@ -295,7 +300,7 @@ class SupabasePairRepository internal constructor(
         }
         val expiresAt = Instant.parse(invite.expiresAt)
         cachedInvite = CachedInvite(pairDto.pairId, expiresAt, invite.code)
-        kick.tryEmit(Unit)
+        kick.trySend(Unit)
         return InviteResult.Applied(pairDto.toDomain(), invite.code, expiresAt)
     }
 
@@ -312,7 +317,7 @@ class SupabasePairRepository internal constructor(
         if (envelope.outcome != "applied") return RedeemResult.DomainError(envelope.outcome.toPairError())
         val pairDto =
             envelope.pair ?: return RedeemResult.NetworkError("malformed_applied_response", retryable = false)
-        kick.tryEmit(Unit)
+        kick.trySend(Unit)
         return RedeemResult.Applied(pairDto.toDomain())
     }
 
@@ -327,7 +332,7 @@ class SupabasePairRepository internal constructor(
         val leftId =
             envelope.leftPairId ?: return LeaveResult.NetworkError("malformed_applied_response", retryable = false)
         cachedInvite = null
-        kick.tryEmit(Unit)
+        kick.trySend(Unit)
         return LeaveResult.Applied(PairId(leftId))
     }
 
@@ -337,6 +342,11 @@ class SupabasePairRepository internal constructor(
      * once the owning session is gone. */
     override fun close() {
         resyncJob.cancel()
+        // Pre-gate finding F11 (2026-09-12): the forward job runs on [scope] (the app scope),
+        // not as a child of [resyncJob] — without this it outlived close() holding the dead
+        // channel.
+        proposalForwardJob?.cancel()
+        proposalForwardJob = null
         val handle = currentChannel
         currentChannel = null
         cachedInvite = null
@@ -347,27 +357,44 @@ class SupabasePairRepository internal constructor(
 
     /** No `break`/`continue`: a fetch or subscribe failure publishes [PairState.Failed]/
      * [PairState.Unpaired] and waits out a kick *inside* the helper, then returns `null` so this
-     * loop simply falls through to its next iteration without an explicit jump. */
-    private suspend fun resyncLoop() {
-        while (currentCoroutineContext().isActive) {
-            val snapshot = awaitSnapshotOrWaitForKick()
-            if (snapshot != null) {
-                mutableState.value = deriveState(snapshot)
-                val handle = subscribeOrWaitForKick(snapshot.channelTopic)
-                if (handle != null) {
-                    currentChannel = handle
-                    proposalForwardJob?.cancel()
-                    proposalForwardJob =
-                        scope.launch { handle.proposalEvents.collect { proposalHints.tryEmit(Unit) } }
-                    merge(handle.invalidations, kick, transport.resyncSignals).first()
-                    proposalForwardJob?.cancel()
-                    proposalForwardJob = null
-                    currentChannel = null
-                    runCatchingSuspend { handle.close() }
+     * loop simply falls through to its next iteration without an explicit jump.
+     *
+     * Wake-up plumbing (pre-gate finding F10): [transport.resyncSignals] is forwarded into the
+     * conflated [kick] channel by a collector armed BEFORE the first fetch, and each live
+     * channel's [PairChannelHandle.invalidations] is forwarded the same way while it is open —
+     * so a signal arriving mid-fetch/mid-subscribe is retained, not dropped. Proposal events
+     * lost during a channel swap are compensated by one [proposalHints] pulse right after each
+     * resubscribe (the proposal repository just refetches; a spurious pulse is harmless). */
+    private suspend fun resyncLoop(): Unit =
+        coroutineScope {
+            val signalForward = launch { transport.resyncSignals.collect { kick.trySend(Unit) } }
+            try {
+                while (currentCoroutineContext().isActive) {
+                    val snapshot = awaitSnapshotOrWaitForKick()
+                    if (snapshot != null) {
+                        mutableState.value = deriveState(snapshot)
+                        val handle = subscribeOrWaitForKick(snapshot.channelTopic)
+                        if (handle != null) {
+                            currentChannel = handle
+                            val invalidationForward =
+                                launch { handle.invalidations.collect { kick.trySend(Unit) } }
+                            proposalForwardJob?.cancel()
+                            proposalForwardJob =
+                                scope.launch { handle.proposalEvents.collect { proposalHints.tryEmit(Unit) } }
+                            proposalHints.tryEmit(Unit)
+                            kick.receive()
+                            invalidationForward.cancel()
+                            proposalForwardJob?.cancel()
+                            proposalForwardJob = null
+                            currentChannel = null
+                            runCatchingSuspend { handle.close() }
+                        }
+                    }
                 }
+            } finally {
+                signalForward.cancel()
             }
         }
-    }
 
     /** `rpc_get_pair`. On success with no active pair, publishes [PairState.Unpaired]; on
      * failure, publishes [PairState.Failed]. Either way waits for the next kick before returning
@@ -394,8 +421,11 @@ class SupabasePairRepository internal constructor(
             null
         }
 
+    /** [transport.resyncSignals] is already forwarded into [kick] by [resyncLoop]'s persistent
+     * collector, so a bare receive covers both sources — and a pulse that landed while this
+     * coroutine was busy is retained by the conflated channel (F10). */
     private suspend fun waitForKick() {
-        merge(kick, transport.resyncSignals).first()
+        kick.receive()
     }
 
     private fun deriveState(dto: PairSnapshotDto): PairState {

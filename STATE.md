@@ -15,6 +15,21 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 2 PRE-GATE VERIFICATION ROUND: 3 verifiers, 3 real bugs found and fixed)
+
+**Verification lane reality:** Astra (codex) died twice — the workspace is **out of credits** (PING). Gemini's first pass was a non-answer (went off to run Gradle); the retry with a tightened static-only brief delivered a real 9-finding report (conf 0.96). An Opus harness subagent ran the deepest pass (re-ran pgTAP itself, built repros in the DB, measured the worst-case list payload at 305 KiB/18.5 ms; conf 0.9). Both independent verifiers said **do not close yet** — and they were right:
+
+**Blocking bugs found (all fixed, all pinned in pgTAP 0019 + DTO tests; 422/422):**
+1. **Cursor precision row loss (Opus F2, Gemini 3, proven repro):** the list cursor serialized `updated_at` at whole-second precision but compared microsecond values — 25 tied rows (exactly one `fn_expire_proposals` sweep's shape) returned 20 on page 1, 0 on page 2, 5 rows permanently unreachable. Fixed in `20260912170000` (microsecond cursor).
+2. **`rpc_complete_lock` lost-update hole (Opus F8, proven):** it never bumped `time_blocks.version`, so a stale-version upsert **applied** and silently reverted a completed lock to scheduled while the commitment stayed completed. Fixed in the same migration; pgTAP now proves the stale upsert conflicts.
+3. **Conflict envelopes could never decode (Gemini 1):** `ProposalRpcEnvelopeDto.action` was required but the server's conflict shapes carry no `action` key (and `rpc_complete_lock`'s carries only `commitment_state`) — every real Conflict surfaced as a generic network failure. B4's hand-authored fixture had invented the key instead of round-tripping A3's real `contracts/fixtures/proposal-conflict.json` (the exact failure mode lead amendment 2 exists for). Fixed + tests now round-trip the real shape.
+
+**Client hardening from the same round (verified live: fresh proposal via curl → event received → card rendered on an untouched screen, shot `stage2-e2e-28`):** both refetch loops moved to CONFLATED channels with collectors armed before fetching — `MutableSharedFlow(replay=0)` was silently DROPPING invalidations that landed mid-refetch (the "buffered" comments were wrong); a compensating proposal-refetch pulse now covers the channel-swap window; `close()` cancels the proposal forward job (it leaked per sign-out); DTO→domain mapping moved inside the failure barrier (an unknown wire enum now degrades to a logged stale list instead of an app crash).
+
+**Evidence-wording correction (Gemini 9):** the client log line proves a proposal-class broadcast arrived (one of the three merged Stage-2 event names) — the specific name `pair.proposal_updated.v1` was inferred from the curl action, not read off the log. The flip evidence itself was independently confirmed genuine by both verifiers (no polling path exists in the client; shots byte-identical except the flipped card).
+
+**Still open from the round (non-blocking, tracked):** history caps at 20 with no pagination UI (frozen surface has no controls — Stage 3+); `rpc_proposal_conflict_hints` lets a member enumerate the peer's busy calendar (contract-sanctioned, ADR-007 — recorded as design intent); C3 polish list (Can't-button wrap, composer scaffold titles, bare UTC rows).
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 2 TIME-LOCK LIVE E2E COMPLETE — incl. the realtime flip, and a Realtime-join root-cause)
 
 **The signature feature is alive on device (shots `stage2-e2e-16..27.png`, client logs, server rows):** A's Together feed renders the **accepted lock card** ("TIME LOCK CONFIRMED · Sun, Sep 13 · 10:00–11:00 AM for you / 2:00–3:00 PM for b2 · On both plans") and the **incoming card** with per-candidate dual-time + day-crossover badge + deadline countdown, per Gemini's §B. **THE REALTIME FLIP IS PROVEN LIVE** (the Stage-1 deferral, closed): with A's screen untouched and foregrounded, B cancelled a proposal via authenticated curl → `pair.proposal_updated.v1` arrived over the private channel (client log line) → the card flipped to "PROPOSAL WITHDRAWN · b2 withdrew this proposal." in seconds. Plan (2026-09-13) renders the shared_lock block with the "Together" marker. pgTAP **402/402**; Windows gate green (248 host tests, real APK verified fresh).
