@@ -1,6 +1,7 @@
 package dev.elay.domain.repository
 
 import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.ProposalResult
 import dev.elay.domain.model.ProposalSummary
@@ -46,4 +47,18 @@ interface ProposalRepository : AutoCloseable {
         operationId: String,
         proposalId: ProposalId,
     ): ProposalResult
+
+    /**
+     * Stage 3 frozen-surface amendment (contracts/stage3-web-rsvp.md lead amendment; the ONLY
+     * permitted change to this otherwise-frozen interface): `rpc_mint_rsvp_token`
+     * (council/stage3-web-rsvp-security-opus.md §2). Mints (or re-mints, revoking the predecessor
+     * — §1 "Re-mint") the caller's one live web-RSVP capability token for [proposalId] at its
+     * current revision. The caller must be the current revision's author; the recipient is
+     * derived server-side as the other active pair member — never supplied here. Does not affect
+     * [observeActive]/[observeHistory] — minting changes no proposal state.
+     */
+    suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): MintRsvpResult
 }

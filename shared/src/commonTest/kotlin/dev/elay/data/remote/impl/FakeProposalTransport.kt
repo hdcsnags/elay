@@ -2,6 +2,7 @@ package dev.elay.data.remote.impl
 
 import dev.elay.data.remote.dto.ProposalRpcEnvelopeDto
 import dev.elay.data.remote.dto.ProposalSummaryDto
+import dev.elay.data.remote.dto.RsvpMintEnvelopeDto
 import dev.elay.domain.model.CreateProposal
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.RespondProposal
@@ -27,6 +28,13 @@ internal class FakeProposalTransport : ProposalTransport {
     var respondResult: ProposalRpcEnvelopeDto? = null
     var cancelResult: ProposalRpcEnvelopeDto? = null
     var completeResult: ProposalRpcEnvelopeDto? = null
+    var mintRsvpTokenResult: RsvpMintEnvelopeDto? = null
+
+    /** When set, thrown from [mintRsvpToken] instead of returning [mintRsvpTokenResult] — scripts
+     * a network/transport failure (mirrors [FakePairTransport]'s `fetchError`). */
+    var mintRsvpTokenError: Throwable? = null
+    var mintRsvpTokenCallCount = 0
+        private set
 
     /** Set by [armFetchActiveGate] — when non-null, every [fetchActive] call suspends on it
      * before returning (a completed gate just resolves immediately, so this stays armed rather
@@ -84,4 +92,13 @@ internal class FakeProposalTransport : ProposalTransport {
         operationId: String,
         proposalId: ProposalId,
     ): ProposalRpcEnvelopeDto = completeResult ?: error("completeResult not scripted for this test")
+
+    override suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): RsvpMintEnvelopeDto {
+        mintRsvpTokenCallCount++
+        mintRsvpTokenError?.let { throw it }
+        return mintRsvpTokenResult ?: error("mintRsvpTokenResult not scripted for this test")
+    }
 }

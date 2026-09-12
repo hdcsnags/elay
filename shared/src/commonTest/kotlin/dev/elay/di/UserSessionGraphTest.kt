@@ -2,6 +2,7 @@ package dev.elay.di
 
 import dev.elay.data.remote.SessionState
 import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.ProposalResult
 import dev.elay.domain.model.ProposalSummary
@@ -199,6 +200,14 @@ private class NoopProposalRepository : ProposalRepository {
         operationId: String,
         proposalId: ProposalId,
     ): ProposalResult = ProposalResult.Failed("noop", retryable = false)
+
+    // Stage 3 spillover (contracts/stage3-web-rsvp.md item 6): forced by ProposalRepository's one
+    // permitted frozen-surface addition; this DI test double is outside B5's grant so kept to the
+    // same one-line "noop" style as its siblings above.
+    override suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): MintRsvpResult = MintRsvpResult.Failed("noop", retryable = false)
 
     override fun close() = Unit
 }

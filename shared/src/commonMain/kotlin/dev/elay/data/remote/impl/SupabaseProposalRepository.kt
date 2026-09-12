@@ -4,9 +4,11 @@ import dev.elay.data.remote.dto.CandidateDto
 import dev.elay.data.remote.dto.ProposalListEnvelopeDto
 import dev.elay.data.remote.dto.ProposalRpcEnvelopeDto
 import dev.elay.data.remote.dto.ProposalSummaryDto
+import dev.elay.data.remote.dto.RsvpMintEnvelopeDto
 import dev.elay.data.remote.dto.toDomain
 import dev.elay.data.remote.dto.toDto
 import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.ProposalResult
 import dev.elay.domain.model.ProposalState
@@ -76,6 +78,14 @@ internal interface ProposalTransport {
         operationId: String,
         proposalId: ProposalId,
     ): ProposalRpcEnvelopeDto
+
+    /** `rpc_mint_rsvp_token(p_operation_id, p_proposal_id)`
+     * (council/stage3-web-rsvp-security-opus.md §2). Recipient is derived server-side; not
+     * passed here. */
+    suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): RsvpMintEnvelopeDto
 }
 
 /**
@@ -132,6 +142,14 @@ private class SupabaseRealtimeProposalTransport(
         operationId: String,
         proposalId: ProposalId,
     ): ProposalRpcEnvelopeDto = callProposalRpc("rpc_complete_lock", idParams(operationId, proposalId))
+
+    override suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): RsvpMintEnvelopeDto =
+        client.postgrest
+            .rpc("rpc_mint_rsvp_token", idParams(operationId, proposalId))
+            .decodeAs()
 
     private suspend fun callProposalRpc(
         function: String,
@@ -205,6 +223,33 @@ private fun Throwable.toFailedResult(): ProposalResult.Failed =
         else -> ProposalResult.Failed(message ?: "unknown_error", retryable = true)
     }
 
+/** [MintRsvpResult] sibling of [Throwable.toFailedResult] — no shared classifier exists across the
+ * house's repository impls (each owns its own; see [SupabasePairRepository.toNetworkFailure] and
+ * [SupabaseDataGateway]'s inline classification for the same duplication pattern). */
+private fun Throwable.toFailedMintResult(): MintRsvpResult.Failed =
+    when (this) {
+        is RestException -> {
+            val retryable =
+                statusCode == HTTP_UNAUTHORIZED ||
+                    statusCode == HTTP_FORBIDDEN ||
+                    statusCode == HTTP_TOO_MANY_REQUESTS ||
+                    statusCode >= HTTP_SERVER_ERROR_FLOOR
+            MintRsvpResult.Failed("http_$statusCode", retryable)
+        }
+        is HttpRequestException -> MintRsvpResult.Failed("network: $message", retryable = true)
+        else -> MintRsvpResult.Failed(message ?: "unknown_error", retryable = true)
+    }
+
+/** Outcome branch for `rpc_mint_rsvp_token` (contract §2: no conflict shape — every non-`applied`
+ * outcome is terminal). [RsvpMintEnvelopeDto.toDomain] runs INSIDE this function so a missing
+ * applied field surfaces via the same catch as the envelope decode itself (F12 lesson) rather
+ * than needing a second try/catch layer. */
+private fun RsvpMintEnvelopeDto.toMintResult(): MintRsvpResult =
+    when (outcome) {
+        "applied" -> MintRsvpResult.Applied(toDomain())
+        else -> MintRsvpResult.Failed("unexpected_outcome:$outcome", retryable = false)
+    }
+
 private fun ProposalRpcEnvelopeDto.toResult(): ProposalResult =
     when (outcome) {
         "applied" -> {
@@ -265,7 +310,12 @@ private fun ProposalRpcEnvelopeDto.toResult(): ProposalResult =
  * that plumbing lands, an empty/never-emitting flow is a safe default: [SupabaseProposalRepository]
  * still refreshes on every successful local mutation and on construction, it just won't pick up
  * the *other* member's changes until the next local mutation or process restart.
+ *
+ * Stage 3's [mintRsvpToken] (contracts/stage3-web-rsvp.md item 4) is the 11th member on the
+ * frozen [ProposalRepository] surface this class implements — one method per RPC, not
+ * decomposable further, hence the [Suppress] below.
  */
+@Suppress("TooManyFunctions")
 class SupabaseProposalRepository internal constructor(
     private val scope: CoroutineScope,
     private val transport: ProposalTransport,
@@ -306,6 +356,19 @@ class SupabaseProposalRepository internal constructor(
         operationId: String,
         proposalId: ProposalId,
     ): ProposalResult = mutate { transport.completeLock(operationId, proposalId) }
+
+    /** `rpc_mint_rsvp_token` (contract §2). Deliberately does NOT go through [mutate]: minting
+     * changes no proposal row, so there is nothing for [observeActive]/[observeHistory] to
+     * reflect and no refetch to kick — unlike every other mutating method on this class. Mapping
+     * ([RsvpMintEnvelopeDto.toMintResult]) still runs INSIDE the [runCatchingSuspend] catch (the
+     * F12 lesson: a malformed applied envelope must degrade to [MintRsvpResult.Failed], never
+     * escape and crash the app). */
+    override suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): MintRsvpResult =
+        runCatchingSuspend { transport.mintRsvpToken(operationId, proposalId).toMintResult() }
+            .getOrElse { it.toFailedMintResult() }
 
     /** Cancels the background refetch loop. There is no channel to tear down here — see the
      * invalidation-seam kdoc above; whatever owns [invalidationHints]'s upstream (the pair

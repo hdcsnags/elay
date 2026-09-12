@@ -2,8 +2,10 @@ package dev.elay.data.remote.impl
 
 import dev.elay.data.remote.dto.ProposalRpcEnvelopeDto
 import dev.elay.data.remote.dto.ProposalSummaryDto
+import dev.elay.data.remote.dto.RsvpMintEnvelopeDto
 import dev.elay.domain.model.Candidate
 import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.ProposalResult
 import dev.elay.domain.model.ProposalState
@@ -249,6 +251,66 @@ class SupabaseProposalRepositoryTest {
             assertEquals(2, transport.fetchHistoryCount)
             assertEquals(1, activeValues.last().size)
             assertEquals(ProposalId(PROPOSAL_ID), activeValues.last().single().id)
+        }
+
+    /** Stage 3 (contracts/stage3-web-rsvp.md item 5): success path — `mintRsvpToken` maps the
+     * applied envelope INSIDE the transport's catch (F12 lesson pattern) and, critically, does
+     * NOT kick a refetch (contract item 4: "minting changes no proposal state") — `fetchActiveCount`
+     * stays at its post-construction value. */
+    @Test
+    fun mintRsvpTokenAppliedMapsTheTokenAndDoesNotKickARefetch() =
+        runTest {
+            val transport = FakeProposalTransport()
+            transport.enqueueActive(listOf(proposalDto(status = "proposed")))
+            transport.enqueueHistory(emptyList())
+            val hints = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+            val repository = SupabaseProposalRepository(backgroundScope, transport, hints)
+            runCurrent()
+            val fetchCountAfterConstruction = transport.fetchActiveCount
+
+            transport.mintRsvpTokenResult =
+                RsvpMintEnvelopeDto(
+                    outcome = "applied",
+                    action = "mint_rsvp_token",
+                    token = "d1jxfqz8k3n5vwrtha6c72eqzm.f0kx9j2wrq5tvbc341hzse8pmn",
+                    tokenId = "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
+                    discloses = listOf("title", "times", "names"),
+                    expiresAt = "2026-09-16T19:00:00Z",
+                )
+
+            val result = repository.mintRsvpToken("op-mint-1", ProposalId(PROPOSAL_ID))
+            runCurrent()
+
+            assertTrue(result is MintRsvpResult.Applied)
+            val token = (result as MintRsvpResult.Applied).token
+            assertEquals("b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e", token.tokenId)
+            assertEquals(listOf("title", "times", "names"), token.discloses)
+            assertEquals(1, transport.mintRsvpTokenCallCount)
+            assertEquals(fetchCountAfterConstruction, transport.fetchActiveCount)
+        }
+
+    /** Stage 3: transport/network failure classifies as [MintRsvpResult.Failed] rather than
+     * escaping — mirrors [Throwable.toFailedResult]'s classification for the other four mutating
+     * methods, via the sibling `toFailedMintResult`. */
+    @Test
+    fun mintRsvpTokenNetworkFailureSurfacesAsFailedRetryable() =
+        runTest {
+            val transport = FakeProposalTransport()
+            transport.enqueueActive(emptyList())
+            transport.enqueueHistory(emptyList())
+            val hints = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+            val repository = SupabaseProposalRepository(backgroundScope, transport, hints)
+            runCurrent()
+
+            transport.mintRsvpTokenError = RuntimeException("boom")
+
+            val result = repository.mintRsvpToken("op-mint-2", ProposalId(PROPOSAL_ID))
+            runCurrent()
+
+            assertTrue(result is MintRsvpResult.Failed)
+            val failed = result as MintRsvpResult.Failed
+            assertEquals("boom", failed.reason)
+            assertTrue(failed.retryable)
         }
 
     @Test

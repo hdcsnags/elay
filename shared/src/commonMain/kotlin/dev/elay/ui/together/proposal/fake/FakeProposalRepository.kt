@@ -1,6 +1,7 @@
 package dev.elay.ui.together.proposal.fake
 
 import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.ProposalResult
 import dev.elay.domain.model.ProposalSummary
@@ -17,7 +18,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * "create called with 1-3 candidates and correct instants" etc. directly, plus test hooks
  * ([nextCreateResult] and friends) to script a specific [ProposalResult] — including
  * [ProposalResult.Conflict]/[ProposalResult.Failed] — for the next call of each kind.
+ *
+ * Stage 3's [mintRsvpToken] (contracts/stage3-web-rsvp.md item 6) is the 11th member forced by
+ * the frozen [ProposalRepository] surface it implements, hence the [Suppress] below.
  */
+@Suppress("TooManyFunctions")
 class FakeProposalRepository(
     initialActive: List<ProposalSummary> = emptyList(),
     initialHistory: List<ProposalSummary> = emptyList(),
@@ -81,6 +86,14 @@ class FakeProposalRepository(
         completeCalls += proposalId
         return nextCompleteResult.also { nextCompleteResult = null } ?: notScripted()
     }
+
+    // Stage 3 spillover (contracts/stage3-web-rsvp.md item 6): minimal stub forced by
+    // ProposalRepository's one permitted frozen-surface addition; C4 (share UI) is not this
+    // seat's grant so no scripting hook is added here.
+    override suspend fun mintRsvpToken(
+        operationId: String,
+        proposalId: ProposalId,
+    ): MintRsvpResult = MintRsvpResult.Failed("not_scripted", retryable = false)
 
     override fun close() {
         closeCallCount++
