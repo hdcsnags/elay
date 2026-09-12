@@ -94,6 +94,12 @@ enum class BlockType(
     Personal("personal"),
     Focus("focus"),
     Routine("routine"),
+
+    /** Stage 2 lead amendment 1 (contracts/stage2-timelock.md): one private, owner-only row per
+     * accepted-proposal participant (council/stage2-timelock-sol.md §A.1 "Block model:
+     * per-member rows"). Renders like any other block in Plan/Today; C3 adds the dual-time
+     * visual marker for this type per Gemini's §B. */
+    SharedLock("shared_lock"),
 }
 
 enum class BlockStatus(

@@ -1,0 +1,26 @@
+{
+  "action": "accept_proposal",
+  "outcome": "applied",
+  "proposal": {
+    "id": "a31d51f3-4c0d-4f5b-8ee4-eeb616ec1334",
+    "title": "Date night",
+    "status": "accepted",
+    "pair_id": "bd76c186-788f-4621-b2be-cc02f964dc6c",
+    "version": 3,
+    "origin_tz": "America/Toronto",
+    "created_at": "2026-09-12T08:04:01Z",
+    "creator_id": "c64cd041-9f86-417f-90b9-86aa00450b59",
+    "expired_at": null,
+    "updated_at": "2026-09-12T08:04:02Z",
+    "accepted_at": "2026-09-12T08:04:02Z",
+    "declined_at": null,
+    "cancelled_at": null,
+    "completed_at": null,
+    "current_revision": 2,
+    "accepted_revision": 2,
+    "response_deadline": "2026-09-16T19:00:00Z",
+    "accepted_candidate_idx": 0
+  },
+  "commitment_id": "2c10c753-1dba-454d-a7f9-78bd8ddbe28b",
+  "time_block_id": "d07f74b5-7f39-4719-a4ff-7cca3e5356dc"
+}

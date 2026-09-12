@@ -41,6 +41,22 @@ class TimeBlockMapperTest {
         }
     }
 
+    /** Stage 2 lead amendment 1 (contracts/stage2-timelock.md): [BlockType.SharedLock] is a new
+     * enum case added to the frozen [BlockType] wire mapping — already covered structurally by
+     * [roundTripsEveryType]'s loop over [BlockType.entries], but this test names it explicitly so
+     * Room's `time_blocks.type` column is proven to tolerate `"shared_lock"` end-to-end
+     * (entity <-> domain, not just the enum's own `wire` field) the same way every other block
+     * type already is. */
+    @Test
+    fun sharedLockTypeRoundTripsWireStringAndDomain() {
+        val block = baseBlock(BlockType.SharedLock, BlockStatus.Scheduled)
+        val entity = block.toEntity(SyncStatus.Pending, localUpdatedAtEpochMs = 0)
+
+        assertEquals("shared_lock", entity.type)
+        assertEquals(block, entity.toDomain())
+        assertEquals(BlockType.SharedLock, entity.toDomain().type)
+    }
+
     @Test
     fun roundTripsEveryStatus() {
         for (status in BlockStatus.entries) {
