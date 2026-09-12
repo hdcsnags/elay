@@ -5,6 +5,7 @@ import dev.elay.data.local.ElayDatabase
 import dev.elay.data.remote.AuthGateway
 import dev.elay.data.remote.SessionState
 import dev.elay.data.remote.impl.SupabaseAuthGateway
+import dev.elay.data.remote.impl.SupabaseAvailabilityRepository
 import dev.elay.data.remote.impl.SupabaseDataGateway
 import dev.elay.data.remote.impl.SupabasePairRepository
 import dev.elay.data.remote.impl.SupabaseProposalRepository
@@ -113,8 +114,16 @@ class AppGraph(
                     appScope,
                     invalidationHints = pairRepository.proposalInvalidations,
                 )
+            val availabilityRepository = SupabaseAvailabilityRepository(supabaseClient)
             UserResources(
-                UserGraph(userId, repository, syncCoordinator, pairRepository, proposalRepository),
+                UserGraph(
+                    userId,
+                    repository,
+                    syncCoordinator,
+                    pairRepository,
+                    proposalRepository,
+                    availabilityRepository,
+                ),
             ) {
                 proposalRepository.close()
                 pairRepository.close()

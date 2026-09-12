@@ -82,6 +82,8 @@ fun App(appGraph: AppGraph) {
                             LocalPlannerRepository provides graph.repository,
                             dev.elay.ui.together.LocalPairRepository provides graph.pairRepository,
                             dev.elay.ui.together.proposal.LocalProposalRepository provides graph.proposalRepository,
+                            dev.elay.ui.together.proposal.LocalAvailabilityRepository provides
+                                graph.availabilityRepository,
                             LocalCurrentUserId provides graph.userId,
                         ) {
                             AppShell(appGraph = appGraph)

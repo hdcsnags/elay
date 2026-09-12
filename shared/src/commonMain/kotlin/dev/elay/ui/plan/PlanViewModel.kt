@@ -1,10 +1,14 @@
 package dev.elay.ui.plan
 
+import dev.elay.domain.availability.AvailabilityRepository
+import dev.elay.domain.availability.ExternalBusyResult
 import dev.elay.domain.model.Task
 import dev.elay.domain.model.TimeBlock
 import dev.elay.domain.model.TimeBlockId
 import dev.elay.domain.model.UserId
 import dev.elay.domain.repository.PlannerRepository
+import dev.elay.ui.together.networkFailureMessage
+import dev.elay.ui.together.proposal.fake.sharedFakeAvailabilityRepository
 import dev.elay.ui.util.LOCAL_OWNER_ID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,14 +40,23 @@ data class PlanUiState(
     val selectedBlock: TimeBlock? = null,
     /** Non-null while the "Add block" sheet (brief §1) is open. */
     val addBlockSheet: ScheduleSheetState? = null,
+    /** Stage-4 capacity gauge (contracts/stage4-honest-availability.md; this seat's grant §5),
+     * recomputed alongside [timelineBlocks] every day-snapshot update — see this file's `init`. */
+    val capacity: CapacityGaugeState = capacityGaugeFor(emptyList()),
+    /** Non-null while the manual "I'm busy then" sheet (this seat's grant §4) is open. */
+    val manualBusySheet: ManualBusyDraftState? = null,
+    /** This-session-only optimistic echo of upserted manual busy rows — see [ManualBusyEntry]'s
+     * kdoc for why there is no durable read-back. */
+    val manualBusyEntries: List<ManualBusyEntry> = emptyList(),
 )
 
 /**
  * Plain, testable ViewModel for the Plan day timeline: day navigation
  * (prev/today/next), block selection for a detail placeholder, the
- * unscheduled-task rail, and the "Add block" sheet (brief §1).
+ * unscheduled-task rail, and the "Add block" sheet (brief §1), plus the manual busy sheet and
+ * capacity gauge (this seat's grant §4-§5) — one facade, hence the suppressions below.
  */
-@Suppress("TooManyFunctions") // day nav + block selection + the add-block sheet, one facade (brief §1)
+@Suppress("TooManyFunctions", "LongParameterList")
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlanViewModel(
     private val repository: PlannerRepository,
@@ -51,7 +64,10 @@ class PlanViewModel(
     private val clock: Clock = Clock.System,
     private val zone: TimeZone = TimeZone.currentSystemDefault(),
     private val ownerId: UserId = LOCAL_OWNER_ID,
+    private val availabilityRepository: AvailabilityRepository = sharedFakeAvailabilityRepository,
     private val newBlockId: () -> String = { defaultScheduleBlockId() },
+    private val newBusyId: () -> String = { defaultManualBusyId() },
+    private val newOperationId: () -> String = { defaultManualBusyId() },
 ) {
     private val selectedDate = MutableStateFlow(today())
     private val _state = MutableStateFlow(PlanUiState(date = selectedDate.value, zone = zone, isToday = true))
@@ -66,14 +82,16 @@ class PlanViewModel(
                     repository.observeUnscheduledTasks(),
                 ) { blocks, unscheduled -> PlanDaySnapshot(date, blocks, unscheduled) }
             }.onEach { snapshot ->
+                val timed = snapshot.blocks.filterNot { block -> block.allDay }
                 _state.update {
                     it.copy(
                         date = snapshot.date,
                         isToday = snapshot.date == today(),
-                        timelineBlocks = snapshot.blocks.filterNot { block -> block.allDay },
+                        timelineBlocks = timed,
                         allDayBlocks = snapshot.blocks.filter { block -> block.allDay },
                         unscheduledTasks = snapshot.unscheduledTasks,
                         selectedBlock = null,
+                        capacity = capacityGaugeFor(timed),
                     )
                 }
             }.launchIn(scope)
@@ -160,6 +178,96 @@ class PlanViewModel(
         _state.update { it.copy(addBlockSheet = null) }
     }
 
+    /** Opens the manual "I'm busy then" sheet (this seat's grant §4, council/stage4-availability-gemini.md
+     * §3.2) for the day currently shown — always the Plan day, never separately editable, mirroring
+     * [openAddBlockSheet]. */
+    fun openManualBusySheet() {
+        _state.update { it.copy(manualBusySheet = manualBusyDraftFor(it.date, zone)) }
+    }
+
+    fun dismissManualBusySheet() {
+        _state.update { it.copy(manualBusySheet = null) }
+    }
+
+    fun updateManualBusyLabel(text: String) {
+        _state.update { it.copy(manualBusySheet = it.manualBusySheet?.withLabel(text)) }
+    }
+
+    fun stepManualBusyStartTime(deltaMinutes: Int) {
+        _state.update { it.copy(manualBusySheet = it.manualBusySheet?.stepStartTime(deltaMinutes)) }
+    }
+
+    fun setManualBusyDuration(minutes: Int) {
+        _state.update { it.copy(manualBusySheet = it.manualBusySheet?.withDuration(minutes)) }
+    }
+
+    /** "Mark busy" (§3.2's single-tap save): `rpc_upsert_external_busy` with a client-generated
+     * [newBusyId] and `origin_tz` from the DEVICE's actual current zone
+     * (`TimeZone.currentSystemDefault().id` — deliverable 4's exact requirement), which may differ
+     * from [zone] (this ViewModel's own configurable rendering zone, mockable in tests) — a manual
+     * busy entry's provenance should always be the zone the device was physically in when the user
+     * tapped Save, not whatever zone Plan happens to be rendering in. On success, appends the
+     * caller's own optimistic echo to [PlanUiState.manualBusyEntries] and closes the sheet; on
+     * failure, keeps it open with a calm retry message (same shape as
+     * [dev.elay.ui.together.proposal.TogetherProposalViewModel]'s mutation handling). */
+    fun saveManualBusy() {
+        val sheet = _state.value.manualBusySheet ?: return
+        val busyId = newBusyId()
+        val (start, end) = sheet.toInstantRange()
+        val label = sheet.label.trim().ifBlank { null }
+        _state.update { it.copy(manualBusySheet = it.manualBusySheet?.copy(isSaving = true, errorMessage = null)) }
+        scope.launch {
+            val result =
+                availabilityRepository.upsertManualBusy(
+                    operationId = newOperationId(),
+                    busyId = busyId,
+                    startsAt = start,
+                    endsAt = end,
+                    originZoneId = TimeZone.currentSystemDefault().id,
+                )
+            when (result) {
+                ExternalBusyResult.Applied ->
+                    _state.update {
+                        it.copy(
+                            manualBusySheet = null,
+                            manualBusyEntries = it.manualBusyEntries + ManualBusyEntry(busyId, start, end, label),
+                        )
+                    }
+                is ExternalBusyResult.Failed ->
+                    _state.update {
+                        it.copy(
+                            manualBusySheet =
+                                it.manualBusySheet?.copy(
+                                    isSaving = false,
+                                    errorMessage = networkFailureMessage(result.retryable),
+                                ),
+                        )
+                    }
+            }
+        }
+    }
+
+    /** Removes one this-session manual busy entry (§3.2's "edit-last-created" allowance extended to
+     * every entry this process itself created — see [ManualBusyEntry]'s kdoc for why nothing else
+     * is ever shown here to remove). A failed delete leaves the entry visible for a retry rather
+     * than silently dropping it from the list. */
+    fun deleteManualBusy(busyId: String) {
+        scope.launch {
+            val result = availabilityRepository.deleteManualBusy(newOperationId(), busyId)
+            if (result is ExternalBusyResult.Applied) {
+                _state.update {
+                    it.copy(
+                        manualBusyEntries =
+                            it.manualBusyEntries.filterNot { entry ->
+                                entry.busyId ==
+                                    busyId
+                            },
+                    )
+                }
+            }
+        }
+    }
+
     private fun today(): LocalDate = clock.now().toLocalDateTime(zone).date
 }
 
@@ -171,6 +279,15 @@ private data class PlanDaySnapshot(
 
 @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
 private fun defaultScheduleBlockId(): String =
+    kotlin.uuid.Uuid
+        .random()
+        .toString()
+
+/** Client-generated id for a manual busy row (`kotlin.uuid`, `@OptIn` as elsewhere in this house) —
+ * also reused as the manual-busy sheet's default `newOperationId` generator, since both are just a
+ * fresh random UUID string with no other shape requirement. */
+@OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+private fun defaultManualBusyId(): String =
     kotlin.uuid.Uuid
         .random()
         .toString()

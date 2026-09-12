@@ -1,5 +1,8 @@
 package dev.elay.ui.together.proposal
 
+import dev.elay.domain.availability.BusySnapshot
+import dev.elay.domain.availability.Certainty
+import dev.elay.domain.availability.SelfConflictHintsResult
 import dev.elay.domain.model.Candidate
 import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.PairId
@@ -16,6 +19,7 @@ import dev.elay.domain.model.RespondProposal
 import dev.elay.domain.model.RsvpToken
 import dev.elay.domain.model.UserId
 import dev.elay.ui.together.fake.FakePairRepository
+import dev.elay.ui.together.proposal.fake.FakeAvailabilityRepository
 import dev.elay.ui.together.proposal.fake.FakeProposalRepository
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -62,6 +66,7 @@ class TogetherProposalViewModelTest {
     private fun TestScope.viewModel(
         proposalRepository: FakeProposalRepository = FakeProposalRepository(),
         pairRepository: FakePairRepository = pairedRepository(),
+        availabilityRepository: FakeAvailabilityRepository = FakeAvailabilityRepository(),
     ) = TogetherProposalViewModel(
         repository = proposalRepository,
         pairRepository = pairRepository,
@@ -72,6 +77,7 @@ class TogetherProposalViewModelTest {
             object : Clock {
                 override fun now() = now
             },
+        availabilityRepository = availabilityRepository,
     )
 
     @Test
@@ -372,6 +378,136 @@ class TogetherProposalViewModelTest {
 
             vm.dismissShareLink()
             assertNull(vm.state.value.shareLink)
+        }
+
+    // --- Stage 4 honest availability: composer/responder certainty (this seat's grant §2-§3) ---
+
+    @Test
+    fun openingTheComposerFetchesSelfHintsKeyedByCandidateIdx() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            val vm = viewModel(availabilityRepository = availability)
+            runCurrent()
+
+            availability.nextHintsResult =
+                SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, false, emptyList(), Certainty.FreePerCalendar)))
+            vm.openComposer()
+            runCurrent()
+
+            assertEquals(1, availability.hintsCalls.size)
+            assertEquals(
+                Certainty.FreePerCalendar,
+                vm.state.value.composer
+                    ?.selfHints
+                    ?.get(0),
+            )
+        }
+
+    @Test
+    fun eachComposerCertaintyStateRendersTheExactSelfHintForItsCandidate() =
+        runTest {
+            for (certainty in Certainty.entries) {
+                val availability = FakeAvailabilityRepository()
+                val vm = viewModel(availabilityRepository = availability)
+                runCurrent()
+
+                availability.nextHintsResult =
+                    SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, false, emptyList(), certainty)))
+                vm.openComposer()
+                runCurrent()
+
+                assertEquals(
+                    certainty,
+                    vm.state.value.composer
+                        ?.selfHints
+                        ?.get(0),
+                )
+            }
+        }
+
+    @Test
+    fun aFailedSelfHintsResultLeavesTheComposerWithNoLabelRatherThanAnErrorBanner() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            val vm = viewModel(availabilityRepository = availability)
+            runCurrent()
+
+            availability.nextHintsResult = SelfConflictHintsResult.Failed("rate_limited", retryable = true)
+            vm.openComposer()
+            runCurrent()
+
+            assertEquals(
+                emptyMap(),
+                vm.state.value.composer
+                    ?.selfHints,
+            )
+            assertNull(vm.state.value.actionError)
+        }
+
+    @Test
+    fun editingACandidateRefetchesSelfHintsAndAStaleInFlightResponseIsDiscarded() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            val vm = viewModel(availabilityRepository = availability)
+            runCurrent()
+            vm.openComposer()
+            runCurrent()
+
+            // Two edits fire before either's fetch resolves — [FakeAvailabilityRepository.hintsResultQueue]
+            // scripts both calls up front, consumed in the order the ViewModel's own coroutines run
+            // (FIFO): the first (now-superseded) request's result must never land.
+            availability.hintsResultQueue +=
+                SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, true, emptyList(), Certainty.FreePerElay)))
+            availability.hintsResultQueue +=
+                SelfConflictHintsResult.Loaded(listOf(BusySnapshot(0, true, emptyList(), Certainty.Busy)))
+            vm.stepComposerCandidateStart(0, COMPOSER_TIME_STEP_MINUTES)
+            vm.stepComposerCandidateStart(0, COMPOSER_TIME_STEP_MINUTES)
+            runCurrent()
+
+            assertEquals(
+                Certainty.Busy,
+                vm.state.value.composer
+                    ?.selfHints
+                    ?.get(0),
+            )
+        }
+
+    @Test
+    fun refreshCardHintsPopulatesCardHintsForAnIncomingCardsCandidates() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            val proposal = sampleProposal()
+            val repository = FakeProposalRepository()
+            repository.emitActive(listOf(proposal))
+            val vm = viewModel(proposalRepository = repository, availabilityRepository = availability)
+            runCurrent()
+
+            availability.nextHintsResult =
+                SelfConflictHintsResult.Loaded(
+                    listOf(
+                        BusySnapshot(0, false, emptyList(), Certainty.FreePerElay),
+                        BusySnapshot(1, true, emptyList(), Certainty.Busy),
+                    ),
+                )
+            vm.refreshCardHints(proposal.id)
+            runCurrent()
+
+            assertEquals(Certainty.FreePerElay, vm.cardHintFor(proposal.id, 0))
+            assertEquals(Certainty.Busy, vm.cardHintFor(proposal.id, 1))
+            assertEquals(2, availability.hintsCalls.single().size)
+        }
+
+    @Test
+    fun refreshCardHintsForAnUnknownProposalIsANoOp() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            val vm = viewModel(availabilityRepository = availability)
+            runCurrent()
+
+            vm.refreshCardHints(ProposalId("does-not-exist"))
+            runCurrent()
+
+            assertTrue(availability.hintsCalls.isEmpty())
         }
 
     private fun sampleProposal(): ProposalSummary {

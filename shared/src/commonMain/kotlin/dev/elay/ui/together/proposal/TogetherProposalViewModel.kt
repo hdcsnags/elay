@@ -1,5 +1,9 @@
 package dev.elay.ui.together.proposal
 
+import dev.elay.domain.availability.AvailabilityRepository
+import dev.elay.domain.availability.Certainty
+import dev.elay.domain.availability.SelfConflictHintsResult
+import dev.elay.domain.model.Candidate
 import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.PairMember
 import dev.elay.domain.model.PairState
@@ -11,6 +15,7 @@ import dev.elay.domain.model.UserId
 import dev.elay.domain.repository.PairRepository
 import dev.elay.domain.repository.ProposalRepository
 import dev.elay.ui.together.networkFailureMessage
+import dev.elay.ui.together.proposal.fake.sharedFakeAvailabilityRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +49,13 @@ data class TogetherProposalUiState(
     val pendingWithdraw: ProposalId? = null,
     val shareLink: ShareLinkUiState? = null,
     val actionError: String? = null,
+    /** Responder certainty (contracts/stage4-honest-availability.md; council/stage4-availability-gemini.md
+     * §1.2 "Proposal Feed Response Chips"): the viewer's OWN `rpc_self_conflict_hints` certainty per
+     * candidate index, keyed by [ProposalId.value] then [dev.elay.domain.model.Candidate.index] —
+     * additive under an [IncomingProposalCard]'s existing dual-time lines, replacing nothing.
+     * Populated by [TogetherProposalViewModel.refreshCardHints]; a missing proposal/index key means
+     * "no label yet", never [Certainty.Unknown]. */
+    val cardHints: Map<String, Map<Int, Certainty>> = emptyMap(),
 )
 
 /**
@@ -131,10 +143,19 @@ class TogetherProposalViewModel(
     private val selfId: UserId,
     private val viewerZone: TimeZone = TimeZone.currentSystemDefault(),
     private val clock: Clock = Clock.System,
+    private val availabilityRepository: AvailabilityRepository = sharedFakeAvailabilityRepository,
     private val newOperationId: () -> String = { defaultProposalOperationId() },
 ) {
     private val _state = MutableStateFlow(TogetherProposalUiState())
     val state: StateFlow<TogetherProposalUiState> = _state.asStateFlow()
+
+    /** Monotonic guards so an in-flight `rpc_self_conflict_hints` response from a since-superseded
+     * candidate edit never clobbers a newer one (§B "inform, never nag" via "a simple explicit
+     * refresh" — contracts/stage4-honest-availability.md deliverable 2's other sanctioned option,
+     * debounce-by-recomposition, would need a Compose-side `LaunchedEffect`; this keeps the fetch —
+     * and its test coverage — entirely in the plain ViewModel, house pattern). */
+    private var composerHintsRequestId = 0
+    private val cardHintsRequestIds = mutableMapOf<String, Int>()
 
     init {
         combine(
@@ -179,6 +200,7 @@ class TogetherProposalViewModel(
                 composer = newComposerState(clock.now(), viewerZone, TimeZone.of(partner.homeTz), partner.displayName),
             )
         }
+        refreshComposerHints()
     }
 
     /** "Suggest different" (§2.1/§2.3) — opens the composer prefilled as a counter to [proposalId]. */
@@ -190,6 +212,7 @@ class TogetherProposalViewModel(
                 composer = counterComposerState(proposal, viewerZone, TimeZone.of(partner.homeTz), partner.displayName),
             )
         }
+        refreshComposerHints()
     }
 
     /** "Reschedule" (§2.4) — opens the composer prefilled with the accepted lock's own time. */
@@ -208,6 +231,7 @@ class TogetherProposalViewModel(
                     ),
             )
         }
+        refreshComposerHints()
     }
 
     fun dismissComposer() {
@@ -223,6 +247,7 @@ class TogetherProposalViewModel(
         deltaMinutes: Int,
     ) {
         updateComposer { it.stepCandidateStart(index, deltaMinutes) }
+        refreshComposerHints()
     }
 
     fun stepComposerCandidateDay(
@@ -230,6 +255,7 @@ class TogetherProposalViewModel(
         deltaDays: Int,
     ) {
         updateComposer { it.stepCandidateDay(index, deltaDays) }
+        refreshComposerHints()
     }
 
     fun stepComposerCandidateDuration(
@@ -237,6 +263,7 @@ class TogetherProposalViewModel(
         deltaMinutes: Int,
     ) {
         updateComposer { it.stepCandidateDuration(index, deltaMinutes) }
+        refreshComposerHints()
     }
 
     fun setComposerCandidateDuration(
@@ -244,14 +271,17 @@ class TogetherProposalViewModel(
         minutes: Int,
     ) {
         updateComposer { it.setCandidateDuration(index, minutes) }
+        refreshComposerHints()
     }
 
     fun addComposerCandidate() {
         updateComposer { it.withAddedCandidate() }
+        refreshComposerHints()
     }
 
     fun removeComposerCandidate(index: Int) {
         updateComposer { it.withRemovedCandidate(index) }
+        refreshComposerHints()
     }
 
     fun selectComposerDeadlineOption(option: DeadlineOption) {
@@ -383,6 +413,56 @@ class TogetherProposalViewModel(
     fun dismissShareLink() {
         _state.update { it.copy(shareLink = null) }
     }
+
+    /** Composer certainty (this seat's grant §2): refreshes [ComposerUiState.selfHints] for the
+     * composer's current candidates — called once on every composer open (fresh/counter/reschedule)
+     * and again after each candidate edit (§B "inform, never nag"'s "simple explicit refresh"
+     * option). A no-op if the composer isn't open (e.g. a stray call after [dismissComposer]). */
+    fun refreshComposerHints() {
+        val composer = _state.value.composer ?: return
+        val requestId = ++composerHintsRequestId
+        val candidates = composer.toCandidates()
+        scope.launch {
+            val hints = fetchSelfHints(candidates)
+            if (requestId != composerHintsRequestId) return@launch // superseded by a later edit
+            updateComposer { it.withSelfHints(hints) }
+        }
+    }
+
+    /** Responder certainty (this seat's grant §3): the viewer's OWN self-conflict hints for one
+     * incoming card's live-revision candidates, additive under its existing dual-time chips.
+     * Callers (the incoming card's own composable) trigger this once per rendered card — a no-op if
+     * [proposalId] no longer resolves to a proposal (e.g. it was just withdrawn/expired). */
+    fun refreshCardHints(proposalId: ProposalId) {
+        val proposal = findProposal(proposalId) ?: return
+        val revision = proposal.revisions.maxByOrNull { it.revisionNo } ?: return
+        val requestId = (cardHintsRequestIds[proposalId.value] ?: 0) + 1
+        cardHintsRequestIds[proposalId.value] = requestId
+        scope.launch {
+            val hints = fetchSelfHints(revision.candidates)
+            if (cardHintsRequestIds[proposalId.value] != requestId) return@launch // superseded
+            _state.update { it.copy(cardHints = it.cardHints + (proposalId.value to hints)) }
+        }
+    }
+
+    /** [TogetherProposalUiState.cardHints] accessor for one candidate chip — `null` means "no label
+     * yet" (§B "inform, never nag" favors silence over a premature guess), same absent-key idiom as
+     * [ComposerUiState.selfHints]. */
+    fun cardHintFor(
+        proposalId: ProposalId,
+        candidateIdx: Int,
+    ): Certainty? = _state.value.cardHints[proposalId.value]?.get(candidateIdx)
+
+    /** `rpc_self_conflict_hints` (contract: "New `rpc_self_conflict_hints` returns the identical
+     * shape for the caller") keyed by `candidate_idx`, never candidate list position alone (the
+     * contract's own defensive re-association rule). A [SelfConflictHintsResult.Failed] resolves to
+     * an empty map — same "silence over a premature guess" idiom, not a calm-copy error banner;
+     * this hint is advisory, not a blocking validation the composer/responder flow depends on. */
+    private suspend fun fetchSelfHints(candidates: List<Candidate>): Map<Int, Certainty> =
+        when (val result = availabilityRepository.selfConflictHints(candidates)) {
+            is SelfConflictHintsResult.Loaded -> result.snapshots.associate { it.candidateIdx to it.certainty }
+            is SelfConflictHintsResult.Failed -> emptyMap()
+        }
 
     private fun findProposal(id: ProposalId): ProposalSummary? =
         (_state.value.activeProposals + _state.value.historyProposals).find { it.id == id }

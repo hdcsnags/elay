@@ -13,9 +13,17 @@ import kotlinx.datetime.TimeZone
  * 'Shared block'"). */
 private const val TITLE_FALLBACK = "Shared block"
 
-/** One candidate's fully-formatted dual-time presentation, ready for a chip/row (§2, §3). */
+/** One candidate's fully-formatted dual-time presentation, ready for a chip/row (§2, §3).
+ * [startsAt]/[endsAt]/[durationMinutes] are carried alongside the formatted [lines] (not just the
+ * raw [Candidate] itself) so an incoming card's chips can rebuild an
+ * `rpc_self_conflict_hints` request (contracts/stage4-honest-availability.md; this seat's grant §3
+ * "Responder certainty") without this file's Compose-facing callers reaching back into
+ * [dev.elay.domain.model.ProposalRevision]. */
 data class CandidateChipUiModel(
     val index: Int,
+    val startsAt: Instant,
+    val endsAt: Instant,
+    val durationMinutes: Int,
     val lines: DualTimeLines,
     val accessibilityDescription: String,
 )
@@ -28,6 +36,9 @@ private fun Candidate.toChip(
 ): CandidateChipUiModel =
     CandidateChipUiModel(
         index = index,
+        startsAt = startsAt,
+        endsAt = endsAt,
+        durationMinutes = durationMinutes,
         lines =
             buildDualTimeLines(
                 startsAt,

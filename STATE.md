@@ -15,6 +15,17 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 4 BUILT + LIVE: honest availability end-to-end)
+
+**All three Stage 4 seats merged same-session** (A6 SQL 870 lines + 94 pgTAP; B7 client data 21 tests; C6 UI — certainty badges, manual "+ Busy" sheet, capacity gauge — 311 host tests total). **pgTAP 613/613** (22 suites). Lead work at merge: 0015's hints key-set pin gains `certainty`; B7's params reconciled to A6's real signatures (`p_id`, optional `p_label` — the label is owner-only, never in peer projections); **true-upsert fix** (A6 treated a client-generated id as update-only → P0002; house convention inserts — T-CLIENTTAG-3 now pins the synced-row guard via the pk collision); DI wiring (AvailabilityRepository into UserGraph/App.kt + the DI test's noop).
+
+**Proven live:** manual busy upsert ("Dentist") → `rpc_self_conflict_hints` flips to `certainty:busy` with the clipped window; on device, Plan renders the capacity gauge ("0h 0m planned · Plenty of space") + "+ Busy" button, and the incoming card's candidate chip shows **"Free per calendar"** (fresh manual source, covering window, no overlap — the stage's signature label, computed server-side) — shots `stage4-e2e-01..03`.
+
+**A6 judgment calls ratified at merge** (manual-source existence keys `free_per_elay`→`free_per_calendar` upgrade; shared 60/15min limiter across both hint RPCs; one-fresh-source suffices). **C6 flagged gaps tracked:** no list RPC for external_busy rows (sheet is add-only with session echo), gauge is ELAY-blocks-only (no day-scoped busy read). Google adapter remains deferred (OAuth = Michael, PING).
+
+**Next:** Stage 4 pre-gate verification round (Opus + Gemini), CI, closure.
+
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 3 CLOSED)
 
 **Closure checklist, all with evidence:**

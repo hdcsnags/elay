@@ -206,6 +206,12 @@ private fun CandidatePreview(
                     (lines.dstCaption?.let { ". $it" } ?: "")
             },
     )
+    // Composer certainty (contracts/stage4-honest-availability.md; council/stage4-availability-gemini.md
+    // §1.2): calm, additive label under the preview — absent (no badge) until
+    // TogetherProposalViewModel.refreshComposerHints resolves, never a placeholder guess.
+    state.selfHints[index]?.let { certainty ->
+        CertaintyBadge(certainty, modifier = Modifier.padding(top = 4.dp))
+    }
 }
 
 @Composable

@@ -23,6 +23,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.elay.domain.availability.Certainty
 import dev.elay.domain.model.ProposalId
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -84,7 +86,9 @@ fun ProposalFeedSection(viewModel: TogetherProposalViewModel) {
             if (cards.isEmpty()) {
                 Text("No time locks yet — propose one above.", style = MaterialTheme.typography.bodyMedium)
             } else {
-                cards.forEach { card -> ProposalCard(card, viewModel, now, state.shareLink) }
+                cards.forEach { card ->
+                    ProposalCard(card, viewModel, now, state.shareLink, state.cardHints[card.id.value].orEmpty())
+                }
             }
         }
     }
@@ -101,17 +105,19 @@ fun ProposalFeedSection(viewModel: TogetherProposalViewModel) {
     }
 }
 
+@Suppress("LongParameterList") // one param per card-kind's own extra data (shareLink/cardHints) — house pattern
 @Composable
 private fun ProposalCard(
     card: ProposalCardUiModel,
     viewModel: TogetherProposalViewModel,
     now: Instant,
     shareLink: ShareLinkUiState?,
+    cardHints: Map<Int, Certainty>,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (card) {
-                is IncomingProposalCard -> IncomingCardBody(card, viewModel, now)
+                is IncomingProposalCard -> IncomingCardBody(card, viewModel, now, cardHints)
                 is OutgoingProposalCard -> OutgoingCardBody(card, viewModel, now, shareLink)
                 is AcceptedProposalCard -> AcceptedCardBody(card, viewModel)
                 is ClosedProposalCard -> ClosedCardBody(card, viewModel)
@@ -144,7 +150,16 @@ private fun IncomingCardBody(
     card: IncomingProposalCard,
     viewModel: TogetherProposalViewModel,
     now: Instant,
+    cardHints: Map<Int, Certainty>,
 ) {
+    // Responder certainty (this seat's grant §3; council/stage4-availability-gemini.md §1.2
+    // "Proposal Feed Response Chips"): fetched once per rendered card (and again if a counter
+    // changes its live revision) — the actual `rpc_self_conflict_hints` call and state update live
+    // in the ViewModel (testable without Compose); [cardHints] itself flows back in through the
+    // observed [TogetherProposalUiState.cardHints] (via [ProposalFeedSection]'s `collectAsState`),
+    // not a direct re-read of the ViewModel here, so recomposition actually picks it up.
+    LaunchedEffect(card.id, card.revisionNo) { viewModel.refreshCardHints(card.id) }
+
     Eyebrow(
         label = if (card.isCountered) "TIME LOCK PROPOSAL · Countered" else "TIME LOCK PROPOSAL · Incoming",
         trailing = deadlineCountdownLabel(now, card.deadline),
@@ -166,6 +181,7 @@ private fun IncomingCardBody(
             chip = chip,
             total = card.candidates.size,
             selected = chip.index == selected,
+            certainty = cardHints[chip.index],
             onClick = { viewModel.selectCandidate(card.id, chip.index) },
         )
     }
@@ -465,6 +481,7 @@ private fun CandidateChipRow(
     chip: CandidateChipUiModel,
     total: Int,
     selected: Boolean,
+    certainty: Certainty?,
     onClick: () -> Unit,
 ) {
     Row(
@@ -481,7 +498,12 @@ private fun CandidateChipRow(
     ) {
         RadioButton(selected = selected, onClick = null)
         Spacer(modifier = Modifier.width(8.dp))
-        DualTimeText(chip.lines)
+        Column {
+            DualTimeText(chip.lines)
+            // Responder certainty (this seat's grant §3): additive under the dual-time lines,
+            // never replacing them — absent (no badge) until the hint resolves.
+            certainty?.let { CertaintyBadge(it, modifier = Modifier.padding(top = 4.dp)) }
+        }
     }
 }
 

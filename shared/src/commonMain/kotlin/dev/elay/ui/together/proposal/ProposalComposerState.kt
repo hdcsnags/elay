@@ -2,6 +2,7 @@
 
 package dev.elay.ui.together.proposal
 
+import dev.elay.domain.availability.Certainty
 import dev.elay.domain.model.Candidate
 import dev.elay.domain.model.CreateProposal
 import dev.elay.domain.model.ProposalId
@@ -75,6 +76,14 @@ data class ComposerUiState(
     val counterExpectedRevision: Int? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
+    /** Composer certainty (contracts/stage4-honest-availability.md; council/stage4-availability-gemini.md
+     * §1.2 "Proposal Composer Candidate Pickers"): the viewer's OWN `rpc_self_conflict_hints`
+     * certainty per candidate index, keyed by [Candidate.index]/`BusySnapshot.candidateIdx` — never
+     * candidate list position alone (contract: "candidate_idx key lets callers re-associate
+     * defensively"). Empty until [TogetherProposalViewModel.refreshComposerHints] resolves; a
+     * missing key (rather than [Certainty.Unknown]) means "no label yet" — §B's "inform, never nag"
+     * favors silence over a premature guess. */
+    val selfHints: Map<Int, Certainty> = emptyMap(),
 )
 
 /** §1.2's slot-1 defaults: tomorrow, 10:00 AM, 60 minutes. */
@@ -223,6 +232,14 @@ fun ComposerUiState.setCandidateDuration(
     return replaceCandidate(index, candidate.copy(durationMinutes = clamped))
 }
 
+/** Sets the composer's per-candidate self-conflict certainty (this seat's grant, §1.2) — called by
+ * [TogetherProposalViewModel.refreshComposerHints] once `rpc_self_conflict_hints` resolves. A fresh
+ * candidate edit clears any stale label for that index rather than showing last known instead
+ * of overwriting with new ones for other candidates that were unaffected — see
+ * [TogetherProposalViewModel.refreshComposerHints]'s monotonic-request-id staleness guard, which
+ * decides whether this is even called for a given response. */
+fun ComposerUiState.withSelfHints(hints: Map<Int, Certainty>): ComposerUiState = copy(selfHints = hints)
+
 private fun ComposerUiState.replaceCandidate(
     index: Int,
     candidate: ComposerCandidate,
@@ -317,7 +334,9 @@ fun validateComposer(
     return ComposerValidation.Valid
 }
 
-private fun ComposerUiState.toCandidates(): List<Candidate> =
+/** Internal (not `private`) so [TogetherProposalViewModel.refreshComposerHints] can build the same
+ * `rpc_self_conflict_hints` request candidates this composer would ultimately submit. */
+internal fun ComposerUiState.toCandidates(): List<Candidate> =
     candidates.mapIndexed { index, candidate ->
         val (start, end) = candidate.toInstantRange(viewerZone)
         Candidate(index = index, startsAt = start, endsAt = end, durationMinutes = candidate.durationMinutes)

@@ -1,5 +1,6 @@
 package dev.elay.ui.plan
 
+import dev.elay.domain.availability.ExternalBusyResult
 import dev.elay.domain.model.BlockStatus
 import dev.elay.domain.model.BlockType
 import dev.elay.domain.model.Priority
@@ -11,6 +12,7 @@ import dev.elay.domain.model.TimeBlockId
 import dev.elay.domain.model.UserId
 import dev.elay.ui.fake.FakePlannerRepository
 import dev.elay.ui.fake.PlannerSeed
+import dev.elay.ui.together.proposal.fake.FakeAvailabilityRepository
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -253,6 +255,150 @@ class PlanViewModelTest {
             val finalState = viewModel.state.value
             assertTrue(finalState.timelineBlocks.isEmpty())
             assertTrue(finalState.allDayBlocks.isEmpty())
+        }
+
+    // --- Stage 4 honest availability: capacity gauge (this seat's grant §5) ---
+
+    @Test
+    fun capacityStartsComfortableWithNoBlocksAndReflectsAddedBlocksAfterSaving() =
+        runTest {
+            val viewModel =
+                PlanViewModel(
+                    fakeRepository(),
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    newBlockId = { "b-cap" },
+                )
+            runCurrent()
+            assertEquals(CapacityLevel.Comfortable, viewModel.state.value.capacity.level)
+            assertEquals(0, viewModel.state.value.capacity.plannedMinutes)
+
+            viewModel.openAddBlockSheet()
+            viewModel.stepSheetDuration(360) // 30m default -> 6h30m (390/480 = 81% -> Full)
+            viewModel.saveScheduledBlock()
+            runCurrent()
+
+            assertEquals(CapacityLevel.Full, viewModel.state.value.capacity.level)
+        }
+
+    @Test
+    fun capacityLevelsMatchEachBudgetBand() {
+        assertEquals(CapacityLevel.Comfortable, capacityLevelFor(0.0f))
+        assertEquals(CapacityLevel.Comfortable, capacityLevelFor(0.49f))
+        assertEquals(CapacityLevel.Balanced, capacityLevelFor(0.5f))
+        assertEquals(CapacityLevel.Balanced, capacityLevelFor(0.79f))
+        assertEquals(CapacityLevel.Full, capacityLevelFor(0.8f))
+        assertEquals(CapacityLevel.Full, capacityLevelFor(1.0f))
+        assertEquals(CapacityLevel.Stretched, capacityLevelFor(1.01f))
+    }
+
+    // --- Stage 4 honest availability: manual "I'm busy then" sheet (this seat's grant §4) ---
+
+    @Test
+    fun openingTheManualBusySheetDefaultsToTheCurrentlyShownDay() =
+        runTest {
+            val viewModel = PlanViewModel(fakeRepository(), backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            viewModel.openManualBusySheet()
+
+            val sheet = viewModel.state.value.manualBusySheet
+            assertEquals(today, sheet?.date)
+            assertEquals(zone, sheet?.zone)
+        }
+
+    @Test
+    fun savingManualBusyUpsertsAndAppendsAnOptimisticEchoThenClosesTheSheet() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            availability.nextUpsertResult = ExternalBusyResult.Applied
+            val viewModel =
+                PlanViewModel(
+                    fakeRepository(),
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    availabilityRepository = availability,
+                    newBusyId = { "busy-1" },
+                )
+            runCurrent()
+            viewModel.openManualBusySheet()
+            viewModel.updateManualBusyLabel("Dentist")
+
+            viewModel.saveManualBusy()
+            runCurrent()
+
+            assertNull(viewModel.state.value.manualBusySheet)
+            val entry =
+                viewModel.state.value.manualBusyEntries
+                    .singleOrNull()
+            assertEquals("busy-1", entry?.busyId)
+            assertEquals("Dentist", entry?.label)
+            val call = availability.upsertCalls.single()
+            assertEquals("busy-1", call.busyId)
+            assertEquals(TimeZone.currentSystemDefault().id, call.originZoneId)
+        }
+
+    @Test
+    fun aFailedManualBusySaveKeepsTheSheetOpenWithACalmRetryMessage() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            availability.nextUpsertResult = ExternalBusyResult.Failed("connection_reset_by_peer", retryable = true)
+            val viewModel =
+                PlanViewModel(
+                    fakeRepository(),
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    availabilityRepository = availability,
+                )
+            runCurrent()
+            viewModel.openManualBusySheet()
+
+            viewModel.saveManualBusy()
+            runCurrent()
+
+            val sheet = viewModel.state.value.manualBusySheet
+            assertEquals("Couldn't reach the server — try again in a moment.", sheet?.errorMessage)
+            assertTrue(
+                viewModel.state.value.manualBusyEntries
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun deletingAManualBusyEntryRemovesItOnlyWhenTheServerApplies() =
+        runTest {
+            val availability = FakeAvailabilityRepository()
+            availability.nextUpsertResult = ExternalBusyResult.Applied
+            val viewModel =
+                PlanViewModel(
+                    fakeRepository(),
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    availabilityRepository = availability,
+                    newBusyId = { "busy-2" },
+                )
+            runCurrent()
+            viewModel.openManualBusySheet()
+            viewModel.saveManualBusy()
+            runCurrent()
+            assertEquals(1, viewModel.state.value.manualBusyEntries.size)
+
+            availability.nextDeleteResult = ExternalBusyResult.Failed("connection_reset_by_peer", retryable = true)
+            viewModel.deleteManualBusy("busy-2")
+            runCurrent()
+            assertEquals(1, viewModel.state.value.manualBusyEntries.size) // failed delete leaves it visible
+
+            availability.nextDeleteResult = ExternalBusyResult.Applied
+            viewModel.deleteManualBusy("busy-2")
+            runCurrent()
+            assertTrue(
+                viewModel.state.value.manualBusyEntries
+                    .isEmpty(),
+            )
         }
 
     private fun Instant.plusHour(): Instant = this + 1.hours

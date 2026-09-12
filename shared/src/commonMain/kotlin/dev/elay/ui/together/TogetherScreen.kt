@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.elay.di.LocalCurrentUserId
 import dev.elay.domain.model.PairState
+import dev.elay.ui.together.proposal.LocalAvailabilityRepository
 import dev.elay.ui.together.proposal.LocalProposalRepository
 import dev.elay.ui.together.proposal.TogetherProposalViewModel
 
@@ -127,14 +128,23 @@ private fun rememberTogetherViewModel(): TogetherViewModel {
 
 /** Wires the Stage 2 time-lock feed's own repository pair (contracts/stage2-timelock.md) —
  * [dev.elay.ui.together.proposal.LocalProposalRepository] falls back to its shared fake exactly
- * like [LocalPairRepository] does above, so a bare preview/test still renders. */
+ * like [LocalPairRepository] does above, so a bare preview/test still renders. Also threads
+ * [LocalAvailabilityRepository] (contracts/stage4-honest-availability.md, this seat's grant) for
+ * the composer/responder certainty labels — same fallback-to-fake pattern. */
 @Composable
 private fun rememberTogetherProposalViewModel(): TogetherProposalViewModel {
     val scope = rememberCoroutineScope()
     val proposalRepository = LocalProposalRepository.current
     val pairRepository = LocalPairRepository.current
     val selfId = LocalCurrentUserId.current
-    return remember(proposalRepository, pairRepository, selfId) {
-        TogetherProposalViewModel(proposalRepository, pairRepository, scope, selfId)
+    val availabilityRepository = LocalAvailabilityRepository.current
+    return remember(proposalRepository, pairRepository, selfId, availabilityRepository) {
+        TogetherProposalViewModel(
+            repository = proposalRepository,
+            pairRepository = pairRepository,
+            scope = scope,
+            selfId = selfId,
+            availabilityRepository = availabilityRepository,
+        )
     }
 }

@@ -53,6 +53,7 @@ class UserSessionGraphTest {
                             FakeSyncCoordinator(),
                             FakePairRepository(),
                             NoopProposalRepository(),
+                            NoopAvailabilityRepository(),
                         ),
                     ) {
                     }
@@ -78,6 +79,7 @@ class UserSessionGraphTest {
                             coordinator,
                             FakePairRepository(),
                             NoopProposalRepository(),
+                            NoopAvailabilityRepository(),
                         ),
                     ) {}
                 }
@@ -105,6 +107,7 @@ class UserSessionGraphTest {
                             FakeSyncCoordinator(),
                             FakePairRepository(),
                             NoopProposalRepository(),
+                            NoopAvailabilityRepository(),
                         ),
                     ) {
                         closed =
@@ -135,6 +138,7 @@ class UserSessionGraphTest {
                             FakeSyncCoordinator(),
                             FakePairRepository(),
                             NoopProposalRepository(),
+                            NoopAvailabilityRepository(),
                         ),
                     ) {
                         closedOrder += userId.value
@@ -164,6 +168,7 @@ class UserSessionGraphTest {
                             FakeSyncCoordinator(),
                             FakePairRepository(),
                             NoopProposalRepository(),
+                            NoopAvailabilityRepository(),
                         ),
                     ) {}
                 }
@@ -178,6 +183,31 @@ class UserSessionGraphTest {
 }
 
 /** Minimal stand-in: UserSessionGraph only carries the reference; behavior is tested elsewhere. */
+private class NoopAvailabilityRepository : dev.elay.domain.availability.AvailabilityRepository {
+    override suspend fun mySources() =
+        dev.elay.domain.availability.AvailabilitySourcesResult
+            .Failed("noop", retryable = false)
+
+    override suspend fun upsertManualBusy(
+        operationId: String,
+        busyId: String,
+        startsAt: kotlinx.datetime.Instant,
+        endsAt: kotlinx.datetime.Instant,
+        originZoneId: String,
+    ) = dev.elay.domain.availability.ExternalBusyResult
+        .Failed("noop", retryable = false)
+
+    override suspend fun deleteManualBusy(
+        operationId: String,
+        busyId: String,
+    ) = dev.elay.domain.availability.ExternalBusyResult
+        .Failed("noop", retryable = false)
+
+    override suspend fun selfConflictHints(candidates: List<dev.elay.domain.model.Candidate>) =
+        dev.elay.domain.availability.SelfConflictHintsResult
+            .Failed("noop", retryable = false)
+}
+
 private class NoopProposalRepository : ProposalRepository {
     private val empty = MutableStateFlow<List<ProposalSummary>>(emptyList())
 
