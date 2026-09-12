@@ -1,0 +1,21 @@
+Michael here, via Fable (lead orchestrator; build authority delegated). STAGE 5 — retention + hardening, the FINAL stage of master-plan-v2: "Plan-vs-actual loop, next-time widget, MASVS pass, store-shaped artifacts." Two blind lanes: SECURITY/HARDENING lane answers §A (the Claude/Opus seat); PRODUCT/UX lane answers §B (the agy/Gemini seat). Answer ONLY your lane. Read-only; modify nothing. Begin with the model you are running as. Deliver the complete lane in one final message — never end "awaiting".
+
+CONTEXT (both lanes). Read: `council/master-plan-v2.md` (Stage 5 row + "post-session 'ran long/finished early/reschedule' feedback" from the ADD bullet), `ELAY-SPEC.md` §2 (calm ops voice) + §11 (phases) + §14 (privacy/security posture), STATE.md's four closure records (what actually shipped: pairing, negotiation, web RSVP, honest availability — all pgTAP 616/616, receipts everywhere, HMAC capability tokens, RLS owner-only + projections), `RETRO-MAESTRO.md` (known residuals carried forward), PING-MICHAEL.md (constraints: no hosted Supabase, no Play/App Store accounts, no FCM — "store-shaped artifacts" means a signed-ready AAB + store listing collateral IN THE REPO, not an actual submission; codex seats down).
+
+SCOPE RULING (lead, binding on both lanes): Stage 5 ships (a) the plan-vs-actual retention loop (post-session feedback on completed/elapsed time locks: ran long / finished early / didn't happen / reschedule — feeding the "next-time" suggestion the widget surfaces), (b) the next-time widget (an in-app Today/Plan surface, NOT an OS home-screen widget — no Glance/WidgetKit this stage), (c) a hardening pass: MASVS-derived checklist applied to what exists (secrets handling, exported components, backup rules, network config, logging hygiene incl. the ELAY printlns, ProGuard/R8 for release), and (d) release-shaped artifacts: signed-with-a-local-keystore AAB build lane + versioning + store listing drafts. NO new realtime events, NO new external services.
+
+§A — HARDENING CONTRACT (Claude lane):
+1. Plan-vs-actual schema: `session_outcomes` (or extend commitments?) — decide; per-member private (owner-only) vs shared-with-pair (argue from spec §6 privacy: is "it ran long" shareable?); RPCs with receipts; how "next time" suggestions derive (server view vs client compute — keep it simple); pgTAP adversarial list.
+2. The MASVS-derived checklist for THIS codebase: enumerate concrete items with file targets (AndroidManifest exported/backup/cleartext flags incl. the debug-only cleartext overlay's release posture; the `ELAY *` println diagnostics → release-stripped logging; local.properties/keystore hygiene; R8 config for the release build incl. kotlinx-serialization keep rules; dependency audit note). Mark each MUST/SHOULD for this stage.
+3. Release lane: keystore generation rules (local, gitignored, documented for Michael), versionCode/-Name scheme, the AAB gate additions to /build-gate (jarsigner -verify per the existing gate note), what CI can and cannot do without store accounts.
+4. Seat slicing (disjoint; migration `20260912210000_*`, pgTAP `0023_*`) + 3 failure modes as "X is forbidden BECAUSE Y; Z remains required".
+End §A: BEGIN VERDICT/END VERDICT {"lane":"hardening-contract","outcomes_storage":"...","outcomes_visibility":"private|shared","sections_ready":true|false,"seat_slices":[...],"failure_modes":[...],"confidence":0..1}
+
+§B — PRODUCT/UX (Gemini lane):
+1. The post-session feedback moment: where/when it appears (a completed/elapsed lock on Today?), the exact calm copy for ran-long/finished-early/didn't-happen/reschedule, one-tap ergonomics, skip-ability (never nag — spec §2).
+2. The next-time surface: where the suggestion lives ("Last time ran 20m long — book 80m?"), copy, and when it appears (composer prefill? Today card?) — pick ONE primary surface for this stage.
+3. Store listing drafts: app name/subtitle/short+full description in the calm voice, keyword direction, screenshot shot-list (which of the existing surfaces tell the story).
+4. A11y + the copy rules for outcome states.
+End §B: {"lane":"product-ux","feedback_surface":"...","next_time_surface":"...","copy_ready":true|false,"confidence":0..1}
+
+Ground in the files (quote §s). Each lane 1,000–1,600 words.
