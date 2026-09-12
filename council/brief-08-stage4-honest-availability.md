@@ -1,0 +1,22 @@
+Michael here, via Fable (lead orchestrator; build authority delegated). STAGE 4 — honest availability: conflict-only calendar read, certainty labels ("free per ELAY" vs "free per calendar"), and Gemini's capacity gauge. Two blind lanes: CONTRACT lane answers §A (the Claude/Opus seat); UX lane answers §B (the agy/Gemini seat). Answer ONLY your lane. Read-only; modify nothing. Begin with the model you are running as. Deliver the complete lane in your single final message — never end "awaiting" anything.
+
+HARD SCOPE CONSTRAINT (both lanes): a Google Cloud OAuth client DOES NOT EXIST yet (only Michael can create it — PING-MICHAEL.md). Stage 4 therefore ships everything BEHIND a provider seam with a fake/manual provider, such that dropping in the real Google provider later is config + one adapter, zero contract changes. Design the real Google shape now (so the seam is right), but nothing in this stage may require the OAuth client to build, test, or E2E. A "manual busy blocks" provider (user marks external-busy windows by hand) is the stand-in that makes the feature genuinely usable meanwhile — rule on whether that ships as UI or dev-only seeding.
+
+CONTEXT (both lanes). Read: `council/master-plan-v2.md` (Stage 4 row + RESEQUENCE bullet: "conflict-only calendar read moves before time-lock beta (honest availability labels: 'free per ELAY' vs 'free per calendar')"), `ELAY-SPEC.md` §2 (inform-never-nag) + ADR-007 (busy-only, never details), `adr/ADR-006`, the shipped Stage 2/3 record (STATE.md newest entries; `rpc_proposal_conflict_hints` in `20260912140000` is today's self-busy source), `council/stage2-timelock-gemini.md` (dual-time + conflict-hint UX rules already binding), the planner schema (`time_blocks`).
+
+§A — CONTRACT (Claude lane), house style:
+1. The provider seam: domain `AvailabilityProvider` (or equivalent) shape — what a provider yields (busy intervals only: UTC instants + an opaque source tag; NEVER titles/attendees/locations, ADR-007), sync cadence vs on-demand reads, staleness metadata (the "certainty" input: when did we last hear from this source), and where external busy data lives — decide: synced into `time_blocks` with a new type/source (frozen-enum question — needs a lead amendment) vs a separate `external_busy` table (argue; consider RLS owner-only, conflict-hint integration, and that peers must NEVER see external busy details — only the busy-ness through existing hint machinery).
+2. Server surface: how `rpc_proposal_conflict_hints` (and the composer/responder flows) incorporate external busy windows; certainty labels' data contract ("free per ELAY" = no ELAY blocks; "free per calendar" = provider fresh within X + no busy overlap; "unknown" = stale/no provider) — exact thresholds; receipts/idempotency for the manual-provider mutations; RLS + pgTAP adversarial list (peer leakage, stale certainty, cross-user hints).
+3. The Google adapter's future shape (token storage rules — where OAuth refresh tokens would live, NEVER in the repo/receipts; incremental sync vs freshness window) — specified but explicitly deferred.
+4. Seat slicing (disjoint files, continue the numbering: migration `20260912200000_*`, pgTAP `0022_*`) + 3 likeliest failure modes with guardrails phrased as "X is forbidden BECAUSE Y; Z remains required" (retro lesson).
+End §A with JSON between BEGIN VERDICT/END VERDICT: {"lane":"contract","external_busy_storage":"time_blocks|separate_table","manual_provider":"ui|dev_seed","sections_ready":true|false,"seat_slices":[...],"failure_modes":[...],"confidence":0..1}
+
+§B — UX SPEC (Gemini lane):
+1. Certainty labels: where "free per ELAY" / "free per calendar" / "unknown" appear (composer candidate pickers, response chips, Plan overlay?) — exact calm copy for each and the visual weight rule (inform, never nag; never red).
+2. The capacity gauge (your own Stage-1 proposal, now scheduled): what it measures, where it lives, exact rendering + copy at each level, a11y.
+3. The manual "I'm busy then" provider UI (if §A ships it as UI): the lightest-possible surface for marking external busy windows, and how it labels their provenance later.
+4. Staleness UX: how "calendar last synced 3d ago" degrades the label without jargon or guilt.
+5. A11y notes throughout.
+End §B with JSON: {"lane":"ux","surfaces":["..."],"gauge_home":"...","copy_ready":true|false,"confidence":0..1}
+
+Ground in the files (quote §s). Each lane 1,000–1,600 words.
