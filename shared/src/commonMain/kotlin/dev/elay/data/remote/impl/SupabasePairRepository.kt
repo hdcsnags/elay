@@ -48,6 +48,9 @@ import kotlinx.serialization.json.put
  * proposal/commitment names are Stage 2's and never appear here.
  */
 private const val EVENT_MEMBER_JOINED = "pair.member_joined.v1"
+private const val EVENT_PROPOSAL_CREATED = "pair.proposal_created.v1"
+private const val EVENT_PROPOSAL_UPDATED = "pair.proposal_updated.v1"
+private const val EVENT_COMMITMENT_CHANGED = "pair.commitment_changed.v1"
 private const val EVENT_MEMBER_LEFT = "pair.member_left.v1"
 
 private const val HTTP_UNAUTHORIZED = 401
@@ -95,6 +98,11 @@ internal interface PairTransport {
  * same: refetch, then resubscribe against whatever topic the fresh snapshot names. */
 internal interface PairChannelHandle {
     val invalidations: Flow<Unit>
+
+    /** Stage 2 lead wiring: pulses on proposal/commitment broadcast events. Pair state does not
+     * change on these; they exist so the proposal repository can share this channel (contract §3,
+     * B4's no-second-channel seam) instead of opening its own. */
+    val proposalEvents: Flow<Unit>
 
     suspend fun close()
 }
@@ -176,6 +184,13 @@ private class SupabaseRealtimeChannelHandle(
             channel.status.filter { it == RealtimeChannel.Status.UNSUBSCRIBED }.map { Unit },
         )
 
+    override val proposalEvents: Flow<Unit> =
+        merge(
+            channel.broadcastFlow(EVENT_PROPOSAL_CREATED).map { Unit },
+            channel.broadcastFlow(EVENT_PROPOSAL_UPDATED).map { Unit },
+            channel.broadcastFlow(EVENT_COMMITMENT_CHANGED).map { Unit },
+        )
+
     override suspend fun close() {
         client.realtime.removeChannel(channel)
     }
@@ -246,6 +261,12 @@ class SupabasePairRepository internal constructor(
      * byte-for-byte would be fragile if the server ever formats them differently. */
     private var cachedInvite: CachedInvite? = null
     private var currentChannel: PairChannelHandle? = null
+
+    /** Stage 2 lead wiring: proposal-event pulses forwarded across channel swaps. */
+    private val proposalHints = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    private var proposalForwardJob: Job? = null
+
+    val proposalInvalidations: Flow<Unit> get() = proposalHints
 
     private val resyncJob: Job = scope.launch { resyncLoop() }
 
@@ -330,7 +351,12 @@ class SupabasePairRepository internal constructor(
                 val handle = subscribeOrWaitForKick(snapshot.channelTopic)
                 if (handle != null) {
                     currentChannel = handle
+                    proposalForwardJob?.cancel()
+                    proposalForwardJob =
+                        scope.launch { handle.proposalEvents.collect { proposalHints.tryEmit(Unit) } }
                     merge(handle.invalidations, kick, transport.resyncSignals).first()
+                    proposalForwardJob?.cancel()
+                    proposalForwardJob = null
                     currentChannel = null
                     runCatchingSuspend { handle.close() }
                 }

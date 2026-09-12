@@ -1,11 +1,19 @@
 package dev.elay.di
 
 import dev.elay.data.remote.SessionState
+import dev.elay.domain.model.CreateProposal
+import dev.elay.domain.model.ProposalId
+import dev.elay.domain.model.ProposalResult
+import dev.elay.domain.model.ProposalSummary
+import dev.elay.domain.model.RespondProposal
 import dev.elay.domain.model.UserId
+import dev.elay.domain.repository.ProposalRepository
 import dev.elay.ui.auth.FakeAuthGateway
 import dev.elay.ui.fake.FakePlannerRepository
 import dev.elay.ui.fake.PlannerSeed
 import dev.elay.ui.together.fake.FakePairRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -37,7 +45,16 @@ class UserSessionGraphTest {
             val auth = FakeAuthGateway(initial = SessionState.SignedOut)
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { uid ->
-                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator(), FakePairRepository())) {}
+                    UserResources(
+                        UserGraph(
+                            uid,
+                            emptyRepository(),
+                            FakeSyncCoordinator(),
+                            FakePairRepository(),
+                            NoopProposalRepository(),
+                        ),
+                    ) {
+                    }
                 }
             runCurrent()
 
@@ -54,7 +71,13 @@ class UserSessionGraphTest {
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { userId ->
                     builtFor += userId
                     UserResources(
-                        UserGraph(UserId("test-user"), emptyRepository(), coordinator, FakePairRepository()),
+                        UserGraph(
+                            UserId("test-user"),
+                            emptyRepository(),
+                            coordinator,
+                            FakePairRepository(),
+                            NoopProposalRepository(),
+                        ),
                     ) {}
                 }
             runCurrent()
@@ -74,7 +97,15 @@ class UserSessionGraphTest {
             var closed = false
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { uid ->
-                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator(), FakePairRepository())) {
+                    UserResources(
+                        UserGraph(
+                            uid,
+                            emptyRepository(),
+                            FakeSyncCoordinator(),
+                            FakePairRepository(),
+                            NoopProposalRepository(),
+                        ),
+                    ) {
                         closed =
                             true
                     }
@@ -97,7 +128,13 @@ class UserSessionGraphTest {
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { userId ->
                     UserResources(
-                        UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator(), FakePairRepository()),
+                        UserGraph(
+                            UserId("test-user"),
+                            emptyRepository(),
+                            FakeSyncCoordinator(),
+                            FakePairRepository(),
+                            NoopProposalRepository(),
+                        ),
                     ) {
                         closedOrder += userId.value
                     }
@@ -120,7 +157,13 @@ class UserSessionGraphTest {
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { _ ->
                     buildCount++
                     UserResources(
-                        UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator(), FakePairRepository()),
+                        UserGraph(
+                            UserId("test-user"),
+                            emptyRepository(),
+                            FakeSyncCoordinator(),
+                            FakePairRepository(),
+                            NoopProposalRepository(),
+                        ),
                     ) {}
                 }
             runCurrent()
@@ -131,4 +174,31 @@ class UserSessionGraphTest {
 
             assertEquals(1, buildCount, "the same signed-in user id re-emitted must not rebuild the graph")
         }
+}
+
+/** Minimal stand-in: UserSessionGraph only carries the reference; behavior is tested elsewhere. */
+private class NoopProposalRepository : ProposalRepository {
+    private val empty = MutableStateFlow<List<ProposalSummary>>(emptyList())
+
+    override fun observeActive(): Flow<List<ProposalSummary>> = empty
+
+    override fun observeHistory(): Flow<List<ProposalSummary>> = empty
+
+    override suspend fun create(command: CreateProposal): ProposalResult =
+        ProposalResult.Failed("noop", retryable = false)
+
+    override suspend fun respond(command: RespondProposal): ProposalResult =
+        ProposalResult.Failed("noop", retryable = false)
+
+    override suspend fun cancel(
+        operationId: String,
+        proposalId: ProposalId,
+    ): ProposalResult = ProposalResult.Failed("noop", retryable = false)
+
+    override suspend fun complete(
+        operationId: String,
+        proposalId: ProposalId,
+    ): ProposalResult = ProposalResult.Failed("noop", retryable = false)
+
+    override fun close() = Unit
 }

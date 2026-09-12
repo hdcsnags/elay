@@ -76,6 +76,14 @@ internal class FakePairChannelHandle(
     private val mutableInvalidations = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     override val invalidations: Flow<Unit> = mutableInvalidations
 
+    private val mutableProposalEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val proposalEvents: Flow<Unit> = mutableProposalEvents
+
+    /** Simulates a `pair.proposal_*`/`pair.commitment_changed` broadcast. */
+    fun emitProposalEvent() {
+        mutableProposalEvents.tryEmit(Unit)
+    }
+
     var closed = false
         private set
 
