@@ -640,7 +640,7 @@ create table public.conflict_hints_attempts (
     attempted_at timestamptz not null default now()
 );
 
-comment on table public.conflict_hints_attempts is 'Unconditional per-attempt log backing the 60/15min per-caller limiter shared by rpc_proposal_conflict_hints and rpc_self_conflict_hints. No client access.';
+comment on table public.conflict_hints_attempts is 'Per-attempt log backing the 60/15min per-caller limiter shared by rpc_proposal_conflict_hints and rpc_self_conflict_hints. Not unconditional in the strict sense: a later raise in the calling RPC rolls the insert back, so erroring calls never count (pre-gate F7). No client access.';
 
 create index conflict_hints_attempts_caller_time_idx
     on public.conflict_hints_attempts (caller_id, attempted_at);
@@ -670,7 +670,7 @@ begin
 end;
 $$;
 
-comment on function public.hints_rate_limited(uuid) is 'Logs the attempt unconditionally, then reports whether the caller has exceeded 60/15min. Shared by rpc_proposal_conflict_hints and rpc_self_conflict_hints (UNVERIFIED #5: per CALLER, not per RPC). Not grant-reachable.';
+comment on function public.hints_rate_limited(uuid) is 'Logs the attempt (rolled back if the caller later raises -- F7), then reports whether the caller has exceeded 60/15min. Shared by rpc_proposal_conflict_hints and rpc_self_conflict_hints (UNVERIFIED #5: per CALLER, not per RPC). Not grant-reachable.';
 
 revoke all on function public.hints_rate_limited(uuid) from public, anon, authenticated;
 

@@ -20,7 +20,7 @@
 --   grep-proofs: external_ref_hash never leaves any RPC        -> T-GREP-*
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(94);
+select plan(97);
 
 -- ===================================================================================
 -- structure
@@ -463,6 +463,31 @@ select is(
     array['freshness_ttl_minutes','last_synced_at','source_tag','status','window_end_utc','window_start_utc'],
     'T-GREP-3: rpc_my_availability_sources exposes exactly the contract''s fields, nothing token/hash-shaped'
 );
+
+-- Pre-gate re-verify pins: the two lead-added guards must carry negative tests.
+reset role;
+select throws_ok(
+    $$select public.fn_sync_external_busy(gen_random_uuid(), 'manual', now(), now() + interval '1 day', '[]'::jsonb)$$,
+    '22023', null,
+    'F12: fn_sync_external_busy rejects source_tag=manual (an edge-function bug must never wipe hand-entered rows)'
+);
+-- F8: rows older than a day are purged by the limiter's opportunistic delete.
+insert into public.conflict_hints_attempts (caller_id, attempted_at)
+select '00000000-0000-0000-0000-000000022a01', now() - interval '3 days' from generate_series(1, 5);
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-000000022a01","role":"authenticated"}';
+select lives_ok(
+    $$select public.rpc_self_conflict_hints('[{"candidate_idx":0,"starts_at_utc":"2026-10-05T19:00:00Z","ends_at_utc":"2026-10-05T20:00:00Z","duration_min":60}]'::jsonb)$$,
+    'F8 setup: one hints call runs the opportunistic purge'
+);
+reset role;
+select is(
+    (select count(*)::int from public.conflict_hints_attempts
+     where caller_id = '00000000-0000-0000-0000-000000022a01' and attempted_at < now() - interval '1 day'),
+    0,
+    'F8: attempt rows older than a day are purged'
+);
+set local role authenticated;
 
 select * from finish();
 rollback;

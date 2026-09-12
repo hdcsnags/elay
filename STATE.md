@@ -6,7 +6,7 @@
 
 | Item | Value |
 |---|---|
-| Phase | **Stages 1+2+3 CLOSED (pairing · time-lock negotiation · web RSVP — all live-E2E'd + independently verified) → Stage 4: honest availability (calendar conflict-read; Google OAuth needs Michael)** |
+| Phase | **Stages 1+2+3+4 CLOSED (pairing · time-lock · web RSVP · honest availability) → Stage 5: retention + hardening per master-plan-v2** |
 | Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
@@ -15,18 +15,29 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 4 CLOSED)
+
+**Closure checklist:**
+- [x] Contract + 7 amendments implemented; migration `20260912200000` (890 lines) + pgTAP **616/616** (22 suites; 0022 now 97 assertions incl. the F12 manual-sync-rejection and F8 purge pins added at re-verify).
+- [x] Live E2E: manual busy → self-hints `busy`; on device the responder chip reads the honest "Free · matches your busy times" and the composer's own badge "You have a scheduled block at this time" (three distinct captures, `stage4-e2e-01..03`).
+- [x] Verification: Opus two-round pass (round 1 conf 0.88, 7 blockers — ALL honesty/data-loss class; round 2 **flips to ready, conf 0.9**, both new SQL guards repro-verified, file↔live 15/15 byte-match). Gemini's parallel pre-gate seat flaked (0 chars) — closure rests on the Opus double-pass + its rolled-back repros. Ledger corrections applied for real this round: the F7 comments (my earlier "fixed" claim was false — the sed hadn't matched), the line count (890; 870/881 both stale).
+- [x] CI ×3 green on `5e10be3`; the follow-up (pins + comments) rides the closure commit.
+
+**Carried to the availability-surfacing pass (verifier's list):** partner-hints consumption + staleness copy (amendment 6); F6 starvation re-test when partner hints ship; F13 status-aware ladder; F11 fn_sync moved-event drop (MUST fix before the Google adapter); F9 domain error for own-synced-row edits; refreshCardHints debounce.
+
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 4 PRE-GATE ROUND: 7 blockers found — honesty defects — all fixed)
 
 **Opus verification (conf 0.88, 4 rolled-back repro scripts, 15/15 function file↔live byte-match) blocked closure on HONESTY, not SQL:** the certainty ladder/coalescing/grants all survived attack, but (F16) every `free_per_calendar` is manual-derived in this build while the a11y string claimed "verified with external calendar"; (F21) the rate-limited opaque shape rendered as a positive "Free on ELAY"; (F22) zero debounce meant ~2 candidate adjustments burned the 60/15min budget and flipped labels to that false Free; (F23) the manual sheet's label was silently dropped on the wire; (F24) DTO window keys never matched the server (permanently null); (F15/F25) two contract clauses had no client consumer; (F28) **my own evidence package failed — `stage4-e2e-02` and `-03` were byte-identical, both named for a composer capture that wasn't in frame** (the prose was honest; the artifacts weren't).
 
-**All fixed this round:** honest copy (live-proven: responder chip now reads "Free · matches your busy times"); Unknown never asserts free; 400ms debounce (+ test pinning coalescing); `p_label` end-to-end; window keys corrected; `fn_sync` rejects 'manual' (F12); attempts self-purge (F8); "unconditional log" comment corrected (F7); F15/F25 **formally deferred** by contract amendment 6 (server sides shipped+pinned). Evidence recaptured honestly: the composer's own badge is now in frame — reading **"You have a scheduled block at this time"**, the exact Busy the verifier predicted the cropped frame was hiding. Corrections: A6's migration is 881 lines (not 870); the old `-03` duplicate is deleted.
+**All fixed this round:** honest copy (live-proven: responder chip now reads "Free · matches your busy times"); Unknown never asserts free; 400ms debounce (+ test pinning coalescing); `p_label` end-to-end; window keys corrected; `fn_sync` rejects 'manual' (F12); attempts self-purge (F8); "unconditional log" comment corrected (F7); F15/F25 **formally deferred** by contract amendment 6 (server sides shipped+pinned). Evidence recaptured honestly: the composer's own badge is now in frame — reading **"You have a scheduled block at this time"**, the exact Busy the verifier predicted the cropped frame was hiding. Corrections: A6's migration is 890 lines after this round's SQL fixes (earlier counts 870/881 were both stale); the old `-03` duplicate is deleted.
 
 **Gate green (311 host tests); pgTAP rerun next to confirm post-SQL-fix state; then re-verify + closure.**
 
 
 ### 2026-09-12 — Claude Fable 5 (STAGE 4 BUILT + LIVE: honest availability end-to-end)
 
-**All three Stage 4 seats merged same-session** (A6 SQL 870 lines + 94 pgTAP; B7 client data 21 tests; C6 UI — certainty badges, manual "+ Busy" sheet, capacity gauge — 311 host tests total). **pgTAP 613/613** (22 suites). Lead work at merge: 0015's hints key-set pin gains `certainty`; B7's params reconciled to A6's real signatures (`p_id`, optional `p_label` — the label is owner-only, never in peer projections); **true-upsert fix** (A6 treated a client-generated id as update-only → P0002; house convention inserts — T-CLIENTTAG-3 now pins the synced-row guard via the pk collision); DI wiring (AvailabilityRepository into UserGraph/App.kt + the DI test's noop).
+**All three Stage 4 seats merged same-session** (A6 SQL 890 lines (post-fix count) + 94 pgTAP; B7 client data 21 tests; C6 UI — certainty badges, manual "+ Busy" sheet, capacity gauge — 311 host tests total). **pgTAP 613/613** (22 suites). Lead work at merge: 0015's hints key-set pin gains `certainty`; B7's params reconciled to A6's real signatures (`p_id`, optional `p_label` — the label is owner-only, never in peer projections); **true-upsert fix** (A6 treated a client-generated id as update-only → P0002; house convention inserts — T-CLIENTTAG-3 now pins the synced-row guard via the pk collision); DI wiring (AvailabilityRepository into UserGraph/App.kt + the DI test's noop).
 
 **Proven live:** manual busy upsert ("Dentist") → `rpc_self_conflict_hints` flips to `certainty:busy` with the clipped window; on device, Plan renders the capacity gauge ("0h 0m planned · Plenty of space") + "+ Busy" button, and the incoming card's candidate chip shows **"Free per calendar"** (fresh manual source, covering window, no overlap — the stage's signature label, computed server-side) — shots `stage4-e2e-01..03`.
 
