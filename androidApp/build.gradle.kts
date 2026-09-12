@@ -116,8 +116,16 @@ kotlin {
 val assertReleaseEndpoints by tasks.registering {
     doFirst {
         val url = supabaseUrl
-        require(url.startsWith("https://")) {
-            "Release build requires an https SUPABASE_URL from local.properties (got '$url')"
+        val allowInsecure = providers.gradleProperty("elay.allowInsecureRelease").orNull == "true"
+        if (allowInsecure) {
+            logger.lifecycle(
+                "WARNING: elay.allowInsecureRelease=true — building a RELEASE against '" + url +
+                    "'. LOCAL MINIFIED SMOKE ONLY; never distribute this artifact.",
+            )
+        } else {
+            require(url.startsWith("https://")) {
+                "Release build requires an https SUPABASE_URL from local.properties (got '$url'). For the local minified smoke gate ONLY, pass -Pelay.allowInsecureRelease=true."
+            }
         }
     }
 }

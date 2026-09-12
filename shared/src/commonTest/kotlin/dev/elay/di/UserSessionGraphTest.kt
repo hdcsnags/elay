@@ -54,6 +54,7 @@ class UserSessionGraphTest {
                             FakePairRepository(),
                             NoopProposalRepository(),
                             NoopAvailabilityRepository(),
+                            NoopOutcomeRepository(),
                         ),
                     ) {
                     }
@@ -80,6 +81,7 @@ class UserSessionGraphTest {
                             FakePairRepository(),
                             NoopProposalRepository(),
                             NoopAvailabilityRepository(),
+                            NoopOutcomeRepository(),
                         ),
                     ) {}
                 }
@@ -108,6 +110,7 @@ class UserSessionGraphTest {
                             FakePairRepository(),
                             NoopProposalRepository(),
                             NoopAvailabilityRepository(),
+                            NoopOutcomeRepository(),
                         ),
                     ) {
                         closed =
@@ -139,6 +142,7 @@ class UserSessionGraphTest {
                             FakePairRepository(),
                             NoopProposalRepository(),
                             NoopAvailabilityRepository(),
+                            NoopOutcomeRepository(),
                         ),
                     ) {
                         closedOrder += userId.value
@@ -169,6 +173,7 @@ class UserSessionGraphTest {
                             FakePairRepository(),
                             NoopProposalRepository(),
                             NoopAvailabilityRepository(),
+                            NoopOutcomeRepository(),
                         ),
                     ) {}
                 }
@@ -183,6 +188,22 @@ class UserSessionGraphTest {
 }
 
 /** Minimal stand-in: UserSessionGraph only carries the reference; behavior is tested elsewhere. */
+private class NoopOutcomeRepository : dev.elay.domain.repository.OutcomeRepository {
+    override suspend fun recordOutcome(
+        operationId: String,
+        timeBlockId: String,
+        outcome: dev.elay.domain.model.SessionOutcomeKind,
+        actualMinutes: Int?,
+    ) = dev.elay.domain.model.RecordOutcomeResult
+        .Failed("noop", retryable = false)
+
+    override suspend fun nextTimeSuggestion(
+        taskId: String?,
+        titleKey: String?,
+    ) = dev.elay.domain.model.NextTimeSuggestionResult
+        .Failed("noop", retryable = false)
+}
+
 private class NoopAvailabilityRepository : dev.elay.domain.availability.AvailabilityRepository {
     override suspend fun mySources() =
         dev.elay.domain.availability.AvailabilitySourcesResult

@@ -5,8 +5,14 @@ import dev.elay.domain.model.BlockType
 import dev.elay.domain.model.Capture
 import dev.elay.domain.model.CaptureId
 import dev.elay.domain.model.CaptureSource
+import dev.elay.domain.model.NextTimeSuggestion
+import dev.elay.domain.model.NextTimeSuggestionResult
 import dev.elay.domain.model.ParseStatus
 import dev.elay.domain.model.Priority
+import dev.elay.domain.model.RecordOutcomeResult
+import dev.elay.domain.model.SessionOutcome
+import dev.elay.domain.model.SessionOutcomeId
+import dev.elay.domain.model.SessionOutcomeKind
 import dev.elay.domain.model.Task
 import dev.elay.domain.model.TaskId
 import dev.elay.domain.model.TaskStatus
@@ -15,7 +21,10 @@ import dev.elay.domain.model.TimeBlockId
 import dev.elay.domain.model.UserId
 import dev.elay.ui.fake.FakePlannerRepository
 import dev.elay.ui.fake.PlannerSeed
+import dev.elay.ui.today.fake.FakeOutcomeRepository
 import dev.elay.ui.util.dayWindow
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -28,6 +37,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
 
 class TodayViewModelTest {
     private val zone = TimeZone.UTC
@@ -191,6 +201,388 @@ class TodayViewModelTest {
                     .none { it.id == block.id },
             )
         }
+
+    // --- Stage 5: post-session wrap-up (contracts/stage5-retention-hardening.md; council §B) ---
+
+    @Test
+    fun wrapUpBlockAppearsForAnElapsedStillScheduledBlockWithinTheFourHourTtl() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 3.hours
+            val elapsed = block("b-elapsed", startsAt = now - 90.minutes, endsAt = now - 30.minutes)
+            val repository = fakeRepository(blocks = listOf(elapsed))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertEquals(
+                TimeBlockId("b-elapsed"),
+                viewModel.state.value.wrapUpBlock
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun wrapUpBlockExpiresAfterTheFourHourTtl() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 6.hours
+            val staleElapsed = block("b-stale", startsAt = now - 5.hours - 30.minutes, endsAt = now - 5.hours)
+            val repository = fakeRepository(blocks = listOf(staleElapsed))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertNull(viewModel.state.value.wrapUpBlock)
+        }
+
+    @Test
+    fun wrapUpBlockAppearsForAnExplicitlyCompletedBlockEvenBeforeItsScheduledEnd() =
+        runTest {
+            // §B 1.1 "Explicit Completion" — the user's own Complete tap can happen early (finished
+            // early), so a Completed block is eligible regardless of endsAt-vs-now.
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val completedEarly =
+                block("b-completed-early", startsAt = now - 10.minutes, endsAt = now + 50.minutes)
+                    .copy(status = BlockStatus.Completed)
+            val repository = fakeRepository(blocks = listOf(completedEarly))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertEquals(
+                TimeBlockId("b-completed-early"),
+                viewModel.state.value.wrapUpBlock
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun wrapUpBlockPicksTheMostRecentlyEndedWhenMultipleAreEligible() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 3.hours
+            val olderElapsed = block("b-older", startsAt = now - 2.hours, endsAt = now - 90.minutes)
+            val newerElapsed = block("b-newer", startsAt = now - 40.minutes, endsAt = now - 10.minutes)
+            val repository = fakeRepository(blocks = listOf(olderElapsed, newerElapsed))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertEquals(
+                TimeBlockId("b-newer"),
+                viewModel.state.value.wrapUpBlock
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun recordFinishedEarlyRecordsPlannedMinusFifteenMinutes() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel(plannedMinutes = 60)
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.recordFinishedEarly(block)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(block.id.value, call.timeBlockId)
+            assertEquals(SessionOutcomeKind.FinishedEarly, call.outcome)
+            assertEquals(45, call.actualMinutes)
+            assertTrue(call.operationId.isNotBlank())
+            assertTrue(block.id.value in viewModel.state.value.recordedOutcomeBlockIds)
+        }
+
+    @Test
+    fun recordOnTimeRecordsFinishedEarlyWithActualEqualToPlanned() =
+        runTest {
+            // SessionOutcomeKind has no "on time" member (closed four-value set) — this folds into
+            // FinishedEarly with a zero delta rather than inventing a fifth kind.
+            val (viewModel, outcomes, block) = elapsedBlockViewModel(plannedMinutes = 60)
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.recordOnTime(block)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(SessionOutcomeKind.FinishedEarly, call.outcome)
+            assertEquals(60, call.actualMinutes)
+        }
+
+    @Test
+    fun recordDidntHappenCarriesNoActualMinutes() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel()
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.recordDidntHappen(block)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(SessionOutcomeKind.DidntHappen, call.outcome)
+            assertNull(call.actualMinutes)
+        }
+
+    @Test
+    fun recordRescheduleRecordsTheRescheduledKindWithNoActualMinutes() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel()
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.recordReschedule(block)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(SessionOutcomeKind.Rescheduled, call.outcome)
+            assertNull(call.actualMinutes)
+        }
+
+    @Test
+    fun dismissWrapUpRecordsNothingAndHidesTheRowForTheSession() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel()
+
+            viewModel.dismissWrapUp(block)
+            runCurrent()
+
+            assertTrue(outcomes.recordCalls.isEmpty())
+            assertNull(viewModel.state.value.wrapUpBlock)
+            assertTrue(block.id.value in viewModel.state.value.dismissedWrapUpBlockIds)
+        }
+
+    @Test
+    fun ranLongConfirmRecordsPlannedPlusTheSelectedDelta() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel(plannedMinutes = 60)
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.beginRanLongAdjustment(block)
+            runCurrent()
+            assertEquals(
+                15,
+                viewModel.state.value.pendingRanLongAdjustment
+                    ?.selectedDeltaMinutes,
+            )
+
+            viewModel.selectRanLongDelta(block, 30)
+            viewModel.confirmRanLongAdjustment(block)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(SessionOutcomeKind.RanLong, call.outcome)
+            assertEquals(90, call.actualMinutes)
+            assertNull(viewModel.state.value.pendingRanLongAdjustment)
+        }
+
+    @Test
+    fun ranLongAutoSavesAfterThreeSecondsOfInactivity() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel(plannedMinutes = 60)
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.beginRanLongAdjustment(block)
+            runCurrent()
+            advanceTimeBy(3.1.seconds)
+            runCurrent()
+
+            val call = outcomes.recordCalls.single()
+            assertEquals(SessionOutcomeKind.RanLong, call.outcome)
+            assertEquals(75, call.actualMinutes) // planned(60) + the pre-selected +15m default
+        }
+
+    @Test
+    fun cancelRanLongAdjustmentRecordsNothing() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel()
+
+            viewModel.beginRanLongAdjustment(block)
+            runCurrent()
+            viewModel.cancelRanLongAdjustment()
+            advanceTimeBy(5.seconds)
+            runCurrent()
+
+            assertTrue(outcomes.recordCalls.isEmpty())
+            assertNull(viewModel.state.value.pendingRanLongAdjustment)
+        }
+
+    @Test
+    fun wrapUpConfirmationClearsItselfAfterItsOwnTtl() =
+        runTest {
+            val (viewModel, outcomes, block) = elapsedBlockViewModel()
+            outcomes.nextRecordResult = appliedResult(block)
+
+            viewModel.recordDidntHappen(block)
+            runCurrent()
+            assertEquals(block.id.value, viewModel.state.value.wrapUpConfirmationBlockId)
+
+            advanceTimeBy(2.6.seconds)
+            runCurrent()
+            assertNull(viewModel.state.value.wrapUpConfirmationBlockId)
+        }
+
+    // --- Stage 5: next-time suggestion (council/stage5-retention-gemini.md §B §2) ---
+
+    @Test
+    fun nextTimeSuggestionRendersOnlyWhenNonNullAndDifferentFromStandard() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val upcoming = block("b-upcoming", startsAt = now + 1.hours, endsAt = now + 2.hours)
+            val outcomes = FakeOutcomeRepository()
+            outcomes.nextSuggestionResult =
+                NextTimeSuggestionResult.Loaded(NextTimeSuggestion(suggestedMinutes = 80, sampleSize = 3, basis = null))
+            val repository = fakeRepository(blocks = listOf(upcoming))
+            val viewModel =
+                TodayViewModel(
+                    repository,
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    outcomeRepository = outcomes,
+                )
+            runCurrent()
+
+            viewModel.refreshNextTimeSuggestion(upcoming)
+            runCurrent()
+
+            val card = viewModel.state.value.nextTimeCard
+            assertEquals("b-upcoming", card?.blockId)
+            assertEquals(60, card?.standardMinutes)
+            assertEquals(80, card?.suggestedMinutes)
+            assertEquals("b-upcoming", outcomes.suggestionCalls.single().titleKey)
+        }
+
+    @Test
+    fun nextTimeSuggestionStaysHiddenWhenTheServerHasNotEnoughSamples() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val upcoming = block("b-upcoming", startsAt = now + 1.hours, endsAt = now + 2.hours)
+            val outcomes = FakeOutcomeRepository()
+            outcomes.nextSuggestionResult =
+                NextTimeSuggestionResult.Loaded(
+                    NextTimeSuggestion(suggestedMinutes = null, sampleSize = 1, basis = null),
+                )
+            val repository = fakeRepository(blocks = listOf(upcoming))
+            val viewModel =
+                TodayViewModel(
+                    repository,
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    outcomeRepository = outcomes,
+                )
+            runCurrent()
+
+            viewModel.refreshNextTimeSuggestion(upcoming)
+            runCurrent()
+
+            assertNull(viewModel.state.value.nextTimeCard)
+        }
+
+    @Test
+    fun nextTimeSuggestionStaysHiddenWhenThereIsNoVarianceFromStandard() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val upcoming = block("b-upcoming", startsAt = now + 1.hours, endsAt = now + 2.hours) // 60 planned
+            val outcomes = FakeOutcomeRepository()
+            outcomes.nextSuggestionResult =
+                NextTimeSuggestionResult.Loaded(NextTimeSuggestion(suggestedMinutes = 60, sampleSize = 4, basis = null))
+            val repository = fakeRepository(blocks = listOf(upcoming))
+            val viewModel =
+                TodayViewModel(
+                    repository,
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    outcomeRepository = outcomes,
+                )
+            runCurrent()
+
+            viewModel.refreshNextTimeSuggestion(upcoming)
+            runCurrent()
+
+            assertNull(viewModel.state.value.nextTimeCard)
+        }
+
+    @Test
+    fun dismissNextTimeCardSuppressesItForTheRestOfTheSession() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val upcoming = block("b-upcoming", startsAt = now + 1.hours, endsAt = now + 2.hours)
+            val outcomes = FakeOutcomeRepository()
+            outcomes.nextSuggestionResult =
+                NextTimeSuggestionResult.Loaded(NextTimeSuggestion(suggestedMinutes = 80, sampleSize = 3, basis = null))
+            val repository = fakeRepository(blocks = listOf(upcoming))
+            val viewModel =
+                TodayViewModel(
+                    repository,
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    outcomeRepository = outcomes,
+                )
+            runCurrent()
+            viewModel.refreshNextTimeSuggestion(upcoming)
+            runCurrent()
+            assertEquals(
+                80,
+                viewModel.state.value.nextTimeCard
+                    ?.suggestedMinutes,
+            )
+
+            viewModel.dismissNextTimeCard("b-upcoming")
+            runCurrent()
+            assertNull(viewModel.state.value.nextTimeCard)
+
+            // A later refresh for the same block must not resurrect it this session (§B 2.3
+            // "Suppression": "does not reappear until a subsequent session outcome is logged").
+            viewModel.refreshNextTimeSuggestion(upcoming)
+            runCurrent()
+            assertNull(viewModel.state.value.nextTimeCard)
+        }
+
+    /** A block that ended 30 minutes ago (within the wrap-up TTL) plus its [FakeOutcomeRepository]
+     * and [TodayViewModel], wired together for the wrap-up-chip tests above. */
+    private fun TestScope.elapsedBlockViewModel(
+        plannedMinutes: Int = 30,
+    ): Triple<TodayViewModel, FakeOutcomeRepository, TimeBlock> {
+        val date = LocalDate(2026, 6, 15)
+        val window = dayWindow(date, zone)
+        val now = window.start + 3.hours
+        val elapsed = block("b-elapsed", startsAt = now - (plannedMinutes + 30).minutes, endsAt = now - 30.minutes)
+        val outcomes = FakeOutcomeRepository()
+        val repository = fakeRepository(blocks = listOf(elapsed))
+        val viewModel =
+            TodayViewModel(
+                repository,
+                backgroundScope,
+                clock = fixedClock(now),
+                zone = zone,
+                outcomeRepository = outcomes,
+            )
+        return Triple(viewModel, outcomes, elapsed)
+    }
+
+    private fun appliedResult(block: TimeBlock): RecordOutcomeResult.Applied =
+        RecordOutcomeResult.Applied(
+            SessionOutcome(
+                id = SessionOutcomeId("outcome-1"),
+                timeBlockId = block.id,
+                outcome = SessionOutcomeKind.FinishedEarly,
+                plannedMinutes = 60,
+                actualMinutes = 45,
+                deltaMinutes = -15,
+                version = 1,
+            ),
+        )
 
     private fun task(
         id: String,
