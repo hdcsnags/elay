@@ -81,6 +81,7 @@ fun App(appGraph: AppGraph) {
                         CompositionLocalProvider(
                             LocalPlannerRepository provides graph.repository,
                             dev.elay.ui.together.LocalPairRepository provides graph.pairRepository,
+                            dev.elay.ui.together.proposal.LocalProposalRepository provides graph.proposalRepository,
                             LocalCurrentUserId provides graph.userId,
                         ) {
                             AppShell(appGraph = appGraph)

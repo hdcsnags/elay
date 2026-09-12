@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -44,15 +45,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.elay.di.LocalCurrentUserId
 import dev.elay.di.LocalPlannerRepository
+import dev.elay.domain.model.BlockType
+import dev.elay.domain.model.PairState
 import dev.elay.domain.model.Task
 import dev.elay.domain.model.TaskId
 import dev.elay.domain.model.TimeBlock
+import dev.elay.ui.together.LocalPairRepository
+import dev.elay.ui.together.proposal.buildDualTimeLines
+import dev.elay.ui.together.proposal.dualTimeAccessibilityDescription
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 private val HOUR_HEIGHT: Dp = 56.dp
 private val TIMELINE_HEIGHT: Dp = HOUR_HEIGHT * (PLAN_WINDOW_END_HOUR - PLAN_WINDOW_START_HOUR)
@@ -245,15 +254,64 @@ private fun DayTimeline(
                         .offset(y = top)
                         .height(height),
             ) {
-                Text(
-                    text = block.title ?: "Untitled block",
-                    modifier =
-                        Modifier
-                            .padding(8.dp)
-                            .semantics { contentDescription = "Open detail for ${block.title ?: "block"}" },
-                )
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        text = block.title ?: "Untitled block",
+                        modifier =
+                            Modifier.semantics { contentDescription = "Open detail for ${block.title ?: "block"}" },
+                    )
+                    if (block.type == BlockType.SharedLock) {
+                        SharedLockMarker(block = block, viewerZone = state.zone)
+                    }
+                }
             }
         }
+    }
+}
+
+/**
+ * The "together" affordance + dual-time line for a [BlockType.SharedLock] block
+ * (contracts/stage2-timelock.md lead amendment 1; council/stage2-timelock-gemini.md §3's dual-time
+ * rule). `null`-safe: renders nothing if this process isn't currently Paired (a shared-lock block
+ * shouldn't exist without a partner, but a stale/edge-case snapshot must not crash Plan).
+ */
+@Composable
+private fun SharedLockMarker(
+    block: TimeBlock,
+    viewerZone: TimeZone,
+) {
+    val pairState by LocalPairRepository.current.observePair().collectAsState()
+    val selfId = LocalCurrentUserId.current
+    val partner = (pairState as? PairState.Paired)?.snapshot?.members?.firstOrNull { it.userId != selfId } ?: return
+    val partnerZone = TimeZone.of(partner.homeTz)
+    val now = Clock.System.now()
+    val lines =
+        buildDualTimeLines(
+            startsAt = block.startsAt,
+            endsAt = block.endsAt,
+            viewerZone = viewerZone,
+            partnerZone = partnerZone,
+            partnerDisplayName = partner.displayName,
+            now = now,
+            includeDate = false,
+        )
+    val description =
+        "Together block. " +
+            dualTimeAccessibilityDescription(block.startsAt, block.endsAt, viewerZone, partnerZone, partner.displayName)
+    Column(modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(imageVector = Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(12.dp))
+            Text("Together", style = MaterialTheme.typography.labelSmall)
+        }
+        Text(
+            lines.viewerLine,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+        )
+        Text(
+            lines.partnerLine,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -439,9 +497,14 @@ private fun BlockDetailDialog(
         },
         title = { Text(block.title ?: "Untitled block") },
         text = {
-            val start = block.startsAt.toLocalDateTime(zone).time
-            val end = block.endsAt.toLocalDateTime(zone).time
-            Text(if (block.allDay) "All day" else "$start – $end")
+            Column {
+                val start = block.startsAt.toLocalDateTime(zone).time
+                val end = block.endsAt.toLocalDateTime(zone).time
+                Text(if (block.allDay) "All day" else "$start – $end")
+                if (block.type == BlockType.SharedLock) {
+                    SharedLockMarker(block = block, viewerZone = zone)
+                }
+            }
         },
     )
 }

@@ -13,7 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.elay.di.LocalCurrentUserId
 import dev.elay.domain.model.PairState
+import dev.elay.ui.together.proposal.LocalProposalRepository
+import dev.elay.ui.together.proposal.TogetherProposalViewModel
 
 /**
  * Together surface (contracts/stage1-pairing.md; council/stage1-pairing-contract-sol.md §4):
@@ -25,6 +28,7 @@ import dev.elay.domain.model.PairState
 fun TogetherScreen(
     modifier: Modifier = Modifier,
     viewModel: TogetherViewModel = rememberTogetherViewModel(),
+    proposalViewModel: TogetherProposalViewModel = rememberTogetherProposalViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     TogetherContent(
@@ -37,6 +41,7 @@ fun TogetherScreen(
         onConfirmLeave = viewModel::confirmLeave,
         onDismissError = viewModel::dismissActionError,
         onRetry = viewModel::retry,
+        proposalViewModel = proposalViewModel,
         modifier = modifier,
     )
 }
@@ -53,6 +58,7 @@ private fun TogetherContent(
     onConfirmLeave: () -> Unit,
     onDismissError: () -> Unit,
     onRetry: () -> Unit,
+    proposalViewModel: TogetherProposalViewModel,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -93,6 +99,7 @@ private fun TogetherContent(
                         pairState = pairState,
                         isSubmitting = state.isSubmitting,
                         onLeave = onRequestLeave,
+                        proposalViewModel = proposalViewModel,
                     )
                 }
             is PairState.Failed -> item { FailedCard(failure = pairState.failure, onRetry = onRetry) }
@@ -116,4 +123,18 @@ private fun rememberTogetherViewModel(): TogetherViewModel {
     val scope = rememberCoroutineScope()
     val repository = LocalPairRepository.current
     return remember(repository) { TogetherViewModel(repository, scope) }
+}
+
+/** Wires the Stage 2 time-lock feed's own repository pair (contracts/stage2-timelock.md) —
+ * [dev.elay.ui.together.proposal.LocalProposalRepository] falls back to its shared fake exactly
+ * like [LocalPairRepository] does above, so a bare preview/test still renders. */
+@Composable
+private fun rememberTogetherProposalViewModel(): TogetherProposalViewModel {
+    val scope = rememberCoroutineScope()
+    val proposalRepository = LocalProposalRepository.current
+    val pairRepository = LocalPairRepository.current
+    val selfId = LocalCurrentUserId.current
+    return remember(proposalRepository, pairRepository, selfId) {
+        TogetherProposalViewModel(proposalRepository, pairRepository, scope, selfId)
+    }
 }

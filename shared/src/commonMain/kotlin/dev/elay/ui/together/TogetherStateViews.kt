@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import dev.elay.domain.model.PairFailure
 import dev.elay.domain.model.PairMember
 import dev.elay.domain.model.PairState
+import dev.elay.ui.together.proposal.ProposalFeedSection
+import dev.elay.ui.together.proposal.TogetherProposalViewModel
 import kotlin.time.Clock
 
 /**
@@ -180,6 +182,7 @@ internal fun PairedCard(
     pairState: PairState.Paired,
     isSubmitting: Boolean,
     onLeave: () -> Unit,
+    proposalViewModel: TogetherProposalViewModel,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -188,10 +191,7 @@ internal fun PairedCard(
         ) {
             Text(text = "You're paired", style = MaterialTheme.typography.titleMedium)
             pairState.snapshot.members.forEach { member -> MemberRow(member) }
-            Text(
-                text = "Shared time locks will appear here.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            ProposalFeedSection(viewModel = proposalViewModel)
             OutlinedButton(
                 onClick = onLeave,
                 enabled = !isSubmitting,
