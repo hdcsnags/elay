@@ -17,6 +17,7 @@ val localProps =
         if (f.exists()) f.inputStream().use { load(it) }
     }
 val supabaseUrl = localProps.getProperty("SUPABASE_URL") ?: "http://10.0.2.2:54321"
+val rsvpLinkBase = localProps.getProperty("RSVP_LINK_BASE") ?: "http://10.0.2.2:54321/functions/v1/rsvp"
 val supabaseAnonKey =
     localProps.getProperty("SUPABASE_ANON_KEY")
         ?: (
@@ -62,6 +63,7 @@ android {
         versionCode = vMajor * 10000 + vMinor * 100 + vPatch
         versionName = elayVersion
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "RSVP_LINK_BASE", "\"$rsvpLinkBase\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
     buildFeatures {
@@ -81,6 +83,14 @@ android {
         val ksFile = file(System.getProperty("user.home")).resolve(".elay/keystore.properties")
         if (ksFile.exists()) {
             ksFile.inputStream().use { ksProps.load(it) }
+            val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+            val missing = required.filter { ksProps.getProperty(it).isNullOrBlank() }
+            // Pre-gate F13: a PRESENT-but-incomplete keystore.properties must fail with a
+            // named message, not crash every task via file(null).
+            require(missing.isEmpty()) {
+                "keystore.properties exists but is missing: " + missing.joinToString() +
+                    " (see docs/release.md)"
+            }
             create("release") {
                 storeFile = file(ksProps.getProperty("storeFile"))
                 storePassword = ksProps.getProperty("storePassword")
@@ -117,17 +127,27 @@ val assertReleaseEndpoints by tasks.registering {
     // Configuration-cache-safe: plain values captured at configuration time; the action
     // references no script objects (Gradle cc requirement, found on the first release build).
     val url = supabaseUrl
+    val rsvpBase = rsvpLinkBase
     val allowInsecure = providers.gradleProperty("elay.allowInsecureRelease").orNull == "true"
     doFirst {
+        val loopback = listOf("127.0.0.1", "localhost", "10.0.2.2")
+        fun assertShippable(
+            name: String,
+            value: String,
+        ) {
+            require(value.startsWith("https://") && loopback.none { value.contains(it) }) {
+                "Release build requires an https, non-loopback " + name + " from local.properties (got '" +
+                    value + "'). For the local minified smoke gate ONLY, pass -Pelay.allowInsecureRelease=true."
+            }
+        }
         if (allowInsecure) {
             logger.lifecycle(
                 "WARNING: elay.allowInsecureRelease=true — building a RELEASE against '" + url +
                     "'. LOCAL MINIFIED SMOKE ONLY; never distribute this artifact.",
             )
         } else {
-            require(url.startsWith("https://")) {
-                "Release build requires an https SUPABASE_URL from local.properties (got '$url'). For the local minified smoke gate ONLY, pass -Pelay.allowInsecureRelease=true."
-            }
+            assertShippable("SUPABASE_URL", url)
+            assertShippable("RSVP_LINK_BASE", rsvpBase)
         }
     }
 }

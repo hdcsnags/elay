@@ -330,7 +330,7 @@ class TogetherProposalViewModelTest {
             assertEquals(listOf(proposal.id), repository.mintCalls)
             val ready = assertIs<ShareLinkUiState.Ready>(vm.state.value.shareLink)
             assertEquals(proposal.id, ready.proposalId)
-            assertEquals("$RSVP_LINK_BASE/tok123.macmac", ready.link)
+            assertEquals("${RsvpLinkConfig.base}/tok123.macmac", ready.link)
             assertEquals(proposal.responseDeadline, ready.expiresAt)
             assertEquals(
                 "Anyone with this link can see the title, the proposed times, and both of your names.",

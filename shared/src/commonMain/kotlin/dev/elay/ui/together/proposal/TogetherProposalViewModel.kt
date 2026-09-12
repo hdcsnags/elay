@@ -88,14 +88,17 @@ sealed interface ShareLinkUiState {
 }
 
 /**
- * The web-RSVP Edge Function's local origin (council/stage3-web-rsvp-security-opus.md §2 "Edge
- * Function"; `npx supabase functions serve rsvp` per the contract's lead amendment 6).
- * TODO(stage3-prod-config): swap for the deployed Edge Function's production base URL once one
- * exists — this constant is the only place that needs to change.
+ * The web-RSVP Edge Function's link base — set ONCE at app init from build config
+ * (Stage-5 F11: the value must come from configuration, never a shipped constant; the
+ * release build asserts it is https and non-loopback). The localhost default (the local
+ * `npx supabase functions serve rsvp` origin, Stage-3 lead amendment 6) exists only for
+ * previews/tests and the debug variant, which overwrites it from BuildConfig anyway.
  */
-const val RSVP_LINK_BASE: String = "http://127.0.0.1:54321/functions/v1/rsvp"
+object RsvpLinkConfig {
+    var base: String = "http://127.0.0.1:54321/functions/v1/rsvp"
+}
 
-private fun rsvpLinkFor(token: String): String = "$RSVP_LINK_BASE/$token"
+private fun rsvpLinkFor(token: String): String = "${RsvpLinkConfig.base}/$token"
 
 /** §1 "Leaked-link threat model" labels, matched to `rpc_mint_rsvp_token`'s `discloses` values
  * (["title","times","names"] per the contract). */

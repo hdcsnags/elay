@@ -197,10 +197,6 @@ private class SupabaseRealtimeChannelHandle(
             channel.broadcastFlow(EVENT_PROPOSAL_CREATED).map { Unit },
             channel.broadcastFlow(EVENT_PROPOSAL_UPDATED).map { Unit },
             channel.broadcastFlow(EVENT_COMMITMENT_CHANGED).map { Unit },
-            // NOTE (D2, flagged for lead review): channel.topic embeds the pair id, same as the
-            // subscribe-site topic above; §A named only that site for hashing, so this one is
-            // left as a like-for-like println->ElayLog swap. Consider hashing here too for
-            // consistency.
         ).onEach { ElayLog.d("Realtime") { "ELAY realtime proposal event on topic#${channel.topic.hashCode()}" } }
 
     override suspend fun close() {

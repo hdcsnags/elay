@@ -24,3 +24,17 @@
 | D2 (logging) | `util/ElayLog.kt` expect/actual (new) + exactly the seven println call sites §A names, matching commonTest where sensible |
 | C7 (UI, after B8) | Today-card feedback moment + next-time surface per §B (`ui/today/**`), `docs/store-listing.md`, matching commonTest |
 | Lead | build files/manifests/proguard/gitignore/detekt/CI/keystore/versioning, DI, merges, minified smoke, gate + closure |
+
+## Post-pre-gate lead amendments (2026-09-12, binding)
+5. **F24/F25 formally deferred to the outcome-history pass** (next UI round): a server read
+   RPC for recorded outcomes (so the wrap-up card stops re-prompting across cold starts and
+   a history surface can exist) and the foreground retry with a STABLE per-(block,attempt)
+   operation id plus a visible failure state (today a Failed record is silent). Until then
+   re-answering is safe (idempotent upsert, version bump) but nagging.
+6. **F18 resolution**: the enforceable println rail is the root `assertNoPrintln` Gradle
+   task (wired into `check` + the CI release-shape job); detekt's ForbiddenMethodCall stays
+   configured but is documented as inert without type resolution — never cite it as the rail.
+7. **F11 resolution**: `RsvpLinkConfig.base` is set at app init from BuildConfig
+   (`RSVP_LINK_BASE` in local.properties); `assertReleaseEndpoints` requires https AND
+   non-loopback for both endpoints in release, escape-hatched ONLY by
+   `-Pelay.allowInsecureRelease=true` (loudly logged, local smoke only).

@@ -136,7 +136,7 @@ class ServerHydrator(
             // startup, but the cause still reaches the platform log (debug builds only —
             // release-stripped via ElayLog, stage5 §A MASVS checklist).
             ElayLog.w("Hydration") {
-                "ELAY hydration failure: ${aggregate.wire} ${error::class.simpleName}: ${error.message}"
+                "ELAY hydration failure: ${aggregate.wire} ${error::class.simpleName}"
             }
         }
     }

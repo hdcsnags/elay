@@ -347,9 +347,9 @@ begin
           and so.actual_minutes is not null
           and (
               (p_task_id is not null and b.task_id = p_task_id)
-              or (p_task_id is null and p_title_key is not null and lower(b.title) = lower(p_title_key))
+              or (p_task_id is null and p_title_key is not null and lower(btrim(b.title)) = lower(btrim(p_title_key)))
           )
-        order by b.starts_at_utc desc, so.updated_at desc
+        order by b.starts_at_utc desc, so.updated_at desc, so.id desc
         limit 5
     )
     select count(*), percentile_cont(0.5) within group (order by actual_minutes)

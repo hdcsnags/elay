@@ -29,3 +29,37 @@ subprojects {
         }
     }
 }
+
+
+// Stage 5 hardening item 5, enforceable form (pre-gate F18: detekt's ForbiddenMethodCall
+// is @RequiresTypeResolution and the plain `detekt` task has no classpath, so that rule is
+// provably inert -- 167/167 files scanned, two live printlns, zero findings). This task is
+// the rail that actually fires: any `println(` in shared/src outside ElayLog's own actuals
+// fails the build. Wired into `check`.
+val assertNoPrintln by tasks.registering {
+    val srcRoot = file("shared/src")
+    val allowed = setOf("ElayLog.kt", "ElayLog.android.kt", "ElayLog.ios.kt")
+    inputs.dir(srcRoot)
+    doLast {
+        val offenders =
+            srcRoot.walkTopDown()
+                .filter { it.isFile && it.extension == "kt" && it.name !in allowed }
+                .flatMap { f ->
+                    f.readLines().mapIndexedNotNull { i, l ->
+                        if (l.contains("println(") && !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*")) {
+                            f.relativeTo(srcRoot).path + ":" + (i + 1) + "  " + l.trim()
+                        } else {
+                            null
+                        }
+                    }
+                }
+                .toList()
+        require(offenders.isEmpty()) {
+            "println() is forbidden outside dev.elay.util.ElayLog (release builds must emit nothing):" +
+                System.lineSeparator() + offenders.joinToString(System.lineSeparator())
+        }
+    }
+}
+subprojects {
+    tasks.matching { it.name == "check" }.configureEach { dependsOn(assertNoPrintln) }
+}
