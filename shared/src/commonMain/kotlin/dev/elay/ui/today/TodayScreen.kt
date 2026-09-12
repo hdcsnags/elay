@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -39,6 +43,7 @@ import kotlinx.datetime.toLocalDateTime
 @Composable
 fun TodayScreen(
     onOpenPlan: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = rememberTodayViewModel(),
 ) {
@@ -50,10 +55,12 @@ fun TodayScreen(
         onCompleteTask = viewModel::completeTask,
         onNotTodayTask = viewModel::notTodayTask,
         onOpenPlan = onOpenPlan,
+        onOpenSettings = onOpenSettings,
         modifier = modifier,
     )
 }
 
+@Suppress("LongParameterList") // state + one event lambda per user action — idiomatic Compose (detekt.yml)
 @Composable
 private fun TodayContent(
     state: TodayUiState,
@@ -62,6 +69,7 @@ private fun TodayContent(
     onCompleteTask: (Task) -> Unit,
     onNotTodayTask: (Task) -> Unit,
     onOpenPlan: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -69,7 +77,7 @@ private fun TodayContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { TodayHeader(inboxCount = state.inboxCount) }
+        item { TodayHeader(inboxCount = state.inboxCount, onOpenSettings = onOpenSettings) }
 
         if (state.isEmpty) {
             item { TodayEmptyState(onOpenPlan = onOpenPlan) }
@@ -120,21 +128,33 @@ private fun TodayContent(
 }
 
 @Composable
-private fun TodayHeader(inboxCount: Int) {
+private fun TodayHeader(
+    inboxCount: Int,
+    onOpenSettings: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text = "Today", style = MaterialTheme.typography.headlineSmall)
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-        ) {
-            Text(
-                text = "Inbox · $inboxCount",
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.labelLarge,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+            ) {
+                Text(
+                    text = "Inbox · $inboxCount",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.semantics { contentDescription = "Open Settings" },
+            ) {
+                Icon(Icons.Filled.Settings, contentDescription = null)
+            }
         }
     }
 }

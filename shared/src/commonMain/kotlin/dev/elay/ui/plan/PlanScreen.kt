@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // one small composable per sheet/row element — idiomatic Compose decomposition
+
 package dev.elay.ui.plan
 
 import androidx.compose.foundation.layout.Arrangement
@@ -9,29 +11,45 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.elay.di.LocalCurrentUserId
 import dev.elay.di.LocalPlannerRepository
+import dev.elay.domain.model.Task
+import dev.elay.domain.model.TaskId
 import dev.elay.domain.model.TimeBlock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -57,10 +75,19 @@ fun PlanScreen(
         onToday = viewModel::selectToday,
         onSelectBlock = viewModel::selectBlock,
         onDismissDetail = viewModel::dismissBlockDetail,
+        onAddBlock = { viewModel.openAddBlockSheet() },
+        onScheduleTask = viewModel::openAddBlockSheet,
+        onSheetTitleChange = viewModel::updateSheetTitle,
+        onSheetStartTimeStep = viewModel::stepSheetStartTime,
+        onSheetDurationStep = viewModel::stepSheetDuration,
+        onSheetLinkTask = viewModel::linkSheetTask,
+        onSaveScheduledBlock = viewModel::saveScheduledBlock,
+        onDismissAddBlockSheet = viewModel::dismissAddBlockSheet,
         modifier = modifier,
     )
 }
 
+@Suppress("LongParameterList") // state + one event lambda per user action — idiomatic Compose (detekt.yml)
 @Composable
 private fun PlanContent(
     state: PlanUiState,
@@ -69,12 +96,21 @@ private fun PlanContent(
     onToday: () -> Unit,
     onSelectBlock: (TimeBlock) -> Unit,
     onDismissDetail: () -> Unit,
+    onAddBlock: () -> Unit,
+    onScheduleTask: (Task) -> Unit,
+    onSheetTitleChange: (String) -> Unit,
+    onSheetStartTimeStep: (Int) -> Unit,
+    onSheetDurationStep: (Int) -> Unit,
+    onSheetLinkTask: (Task?) -> Unit,
+    onSaveScheduledBlock: () -> Unit,
+    onDismissAddBlockSheet: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        PlanHeader(onAddBlock = onAddBlock)
         DaySwitcher(state = state, onPreviousDay = onPreviousDay, onNextDay = onNextDay, onToday = onToday)
 
         if (state.allDayBlocks.isNotEmpty()) {
@@ -98,11 +134,42 @@ private fun PlanContent(
             DayTimeline(state = state, onSelectBlock = onSelectBlock)
         }
 
-        UnscheduledRail(state = state)
+        UnscheduledRail(state = state, onScheduleTask = onScheduleTask)
     }
 
     state.selectedBlock?.let { block ->
         BlockDetailDialog(block = block, zone = state.zone, onDismiss = onDismissDetail)
+    }
+
+    state.addBlockSheet?.let { sheet ->
+        AddBlockSheet(
+            sheetState = sheet,
+            unscheduledTasks = state.unscheduledTasks,
+            onTitleChange = onSheetTitleChange,
+            onStartTimeStep = onSheetStartTimeStep,
+            onDurationStep = onSheetDurationStep,
+            onLinkTask = onSheetLinkTask,
+            onSave = onSaveScheduledBlock,
+            onDismiss = onDismissAddBlockSheet,
+        )
+    }
+}
+
+@Composable
+private fun PlanHeader(onAddBlock: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Plan", style = MaterialTheme.typography.headlineSmall)
+        Button(
+            onClick = onAddBlock,
+            modifier = Modifier.semantics { contentDescription = "Add a time block" },
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(" Add block")
+        }
     }
 }
 
@@ -191,7 +258,10 @@ private fun DayTimeline(
 }
 
 @Composable
-private fun UnscheduledRail(state: PlanUiState) {
+private fun UnscheduledRail(
+    state: PlanUiState,
+    onScheduleTask: (Task) -> Unit,
+) {
     if (state.unscheduledTasks.isEmpty()) return
     Column {
         Text("Unscheduled", style = MaterialTheme.typography.titleMedium)
@@ -204,8 +274,148 @@ private fun UnscheduledRail(state: PlanUiState) {
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
-                    Text(text = task.title, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = task.title,
+                            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+                        )
+                        TextButton(
+                            onClick = { onScheduleTask(task) },
+                            modifier = Modifier.semantics { contentDescription = "Schedule ${task.title}" },
+                        ) {
+                            Text("Schedule")
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The Plan "Add block" sheet (brief §1): optional task link, title, a fixed date (always the
+ * Plan day it was opened from), and a start-time/duration stepper — "simple pickers" over an M3
+ * `TimePicker`, which needs its own extra `@OptIn` for no behavioral gain here.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddBlockSheet(
+    sheetState: ScheduleSheetState,
+    unscheduledTasks: List<Task>,
+    onTitleChange: (String) -> Unit,
+    onStartTimeStep: (Int) -> Unit,
+    onDurationStep: (Int) -> Unit,
+    onLinkTask: (Task?) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Add a block for ${sheetState.date}", style = MaterialTheme.typography.titleMedium)
+            TaskLinkField(
+                unscheduledTasks = unscheduledTasks,
+                linkedTaskId = sheetState.linkedTaskId,
+                onLinkTask = onLinkTask,
+            )
+            OutlinedTextField(
+                value = sheetState.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Block title" },
+            )
+            StepperRow(
+                label = "Start ${sheetState.startTime}",
+                onDecrement = { onStartTimeStep(-SCHEDULE_TIME_STEP_MINUTES) },
+                onIncrement = { onStartTimeStep(SCHEDULE_TIME_STEP_MINUTES) },
+                decrementDescription = "Earlier start time",
+                incrementDescription = "Later start time",
+            )
+            StepperRow(
+                label = "Duration ${sheetState.durationMinutes} min",
+                onDecrement = { onDurationStep(-SCHEDULE_TIME_STEP_MINUTES) },
+                onIncrement = { onDurationStep(SCHEDULE_TIME_STEP_MINUTES) },
+                decrementDescription = "Shorter duration",
+                incrementDescription = "Longer duration",
+            )
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.semantics { contentDescription = "Save block" },
+                ) {
+                    Text("Save")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskLinkField(
+    unscheduledTasks: List<Task>,
+    linkedTaskId: TaskId?,
+    onLinkTask: (Task?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = unscheduledTasks.find { it.id == linkedTaskId }?.title ?: "No task"
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Link a task: $selectedLabel" },
+        ) {
+            Text("Task: $selectedLabel")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("No task") },
+                onClick = {
+                    onLinkTask(null)
+                    expanded = false
+                },
+            )
+            unscheduledTasks.forEach { task ->
+                DropdownMenuItem(
+                    text = { Text(task.title) },
+                    onClick = {
+                        onLinkTask(task)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepperRow(
+    label: String,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit,
+    decrementDescription: String,
+    incrementDescription: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(
+                onClick = onDecrement,
+                modifier = Modifier.semantics { contentDescription = decrementDescription },
+            ) {
+                Text("−")
+            }
+            OutlinedButton(
+                onClick = onIncrement,
+                modifier = Modifier.semantics { contentDescription = incrementDescription },
+            ) {
+                Text("+")
             }
         }
     }
@@ -236,10 +446,12 @@ private fun BlockDetailDialog(
     )
 }
 
-/** Wires the real per-account repository from [dev.elay.di.AppGraph] (falls back to the shared fake outside it). */
+/** Wires the real per-account repository + signed-in owner id from [dev.elay.di.AppGraph]
+ * (falls back to the shared fake/local owner outside it). */
 @Composable
 private fun rememberPlanViewModel(): PlanViewModel {
     val scope = rememberCoroutineScope()
     val repository = LocalPlannerRepository.current
-    return remember(repository) { PlanViewModel(repository, scope) }
+    val ownerId = LocalCurrentUserId.current
+    return remember(repository, ownerId) { PlanViewModel(repository, scope, ownerId = ownerId) }
 }

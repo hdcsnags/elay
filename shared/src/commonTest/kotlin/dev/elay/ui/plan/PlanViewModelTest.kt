@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
@@ -130,6 +131,128 @@ class PlanViewModelTest {
 
             viewModel.dismissBlockDetail()
             assertNull(viewModel.state.value.selectedBlock)
+        }
+
+    @Test
+    fun openingTheAddBlockSheetFreshDefaultsToTheCurrentlyShownDayAndNoLinkedTask() =
+        runTest {
+            val viewModel = PlanViewModel(fakeRepository(), backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            viewModel.openAddBlockSheet()
+
+            val sheet = viewModel.state.value.addBlockSheet
+            assertEquals(today, sheet?.date)
+            assertEquals(zone, sheet?.zone)
+            assertNull(sheet?.linkedTaskId)
+            assertEquals("", sheet?.title)
+        }
+
+    @Test
+    fun openingTheAddBlockSheetFromAnUnscheduledTaskPrefillsTheLinkAndTitle() =
+        runTest {
+            val unscheduled = task("t-unscheduled")
+            val repository = fakeRepository(tasks = listOf(unscheduled))
+            val viewModel = PlanViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            viewModel.openAddBlockSheet(unscheduled)
+
+            val sheet = viewModel.state.value.addBlockSheet
+            assertEquals(unscheduled.id, sheet?.linkedTaskId)
+            assertEquals(unscheduled.title, sheet?.title)
+        }
+
+    @Test
+    fun dismissingTheSheetClearsItWithoutTouchingTheRepository() =
+        runTest {
+            val viewModel = PlanViewModel(fakeRepository(), backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+            viewModel.openAddBlockSheet()
+
+            viewModel.dismissAddBlockSheet()
+
+            assertNull(viewModel.state.value.addBlockSheet)
+        }
+
+    @Test
+    fun steppingStartTimeAndDurationUpdatesOnlyTheSheet() =
+        runTest {
+            val viewModel = PlanViewModel(fakeRepository(), backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+            viewModel.openAddBlockSheet()
+
+            viewModel.stepSheetStartTime(SCHEDULE_TIME_STEP_MINUTES)
+            viewModel.stepSheetDuration(SCHEDULE_TIME_STEP_MINUTES)
+
+            val sheet = viewModel.state.value.addBlockSheet
+            assertEquals(LocalTime(9, 15), sheet?.startTime)
+            assertEquals(45, sheet?.durationMinutes)
+        }
+
+    @Test
+    fun linkingATaskToAnAlreadyOpenSheetAdoptsItsTitleOnlyWhenTitleWasBlank() =
+        runTest {
+            val unscheduled = task("t-unscheduled")
+            val repository = fakeRepository(tasks = listOf(unscheduled))
+            val viewModel = PlanViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+            viewModel.openAddBlockSheet()
+
+            viewModel.linkSheetTask(unscheduled)
+
+            val linked = viewModel.state.value.addBlockSheet
+            assertEquals(unscheduled.id, linked?.linkedTaskId)
+            assertEquals(unscheduled.title, linked?.title)
+
+            viewModel.updateSheetTitle("My own title")
+            viewModel.linkSheetTask(null)
+
+            val unlinked = viewModel.state.value.addBlockSheet
+            assertNull(unlinked?.linkedTaskId)
+            assertEquals("My own title", unlinked?.title)
+        }
+
+    @Test
+    fun savingTheSheetUpsertsTheBuiltBlockAndClosesTheSheet() =
+        runTest {
+            val repository = fakeRepository()
+            val viewModel =
+                PlanViewModel(
+                    repository,
+                    backgroundScope,
+                    clock = fixedClock(now),
+                    zone = zone,
+                    ownerId = ownerId,
+                    newBlockId = { "b-new" },
+                )
+            runCurrent()
+            viewModel.openAddBlockSheet()
+            viewModel.updateSheetTitle("Study session")
+
+            viewModel.saveScheduledBlock()
+            runCurrent()
+
+            assertNull(viewModel.state.value.addBlockSheet)
+            val timelineBlocks = viewModel.state.value.timelineBlocks
+            val saved = timelineBlocks.singleOrNull { it.id == TimeBlockId("b-new") }
+            assertEquals("Study session", saved?.title)
+            assertEquals(ownerId, saved?.ownerId)
+        }
+
+    @Test
+    fun savingWithNoOpenSheetIsANoOp() =
+        runTest {
+            val repository = fakeRepository()
+            val viewModel = PlanViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            viewModel.saveScheduledBlock()
+            runCurrent()
+
+            val finalState = viewModel.state.value
+            assertTrue(finalState.timelineBlocks.isEmpty())
+            assertTrue(finalState.allDayBlocks.isEmpty())
         }
 
     private fun Instant.plusHour(): Instant = this + 1.hours

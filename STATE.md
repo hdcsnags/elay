@@ -15,6 +15,16 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (Gate 1 E2E: full loop proven; isolation/hydration legs pending emulator health)
+
+**Seat W2 merged** (124 tests, +24): Plan add-block sheet + per-task Schedule, ServerHydrator (PENDING/CONFLICT-safe), Settings+sign-out via Today gear, session-restore loading branch, auth ops on appScope via LocalAppScope.
+
+**PROVEN ON DEVICE (evidence: gate1-2x shots + server rows):** the complete Gate 1 loop — **capture → clarify → schedule → complete** — with every step synced: time_blocks row carries UTC instants + `America/New_York` origin zone (ADR-006 in production data), completion synced as `status=completed, version=2`. Plan timeline renders the block; Today shows Up-next with live countdown + schedule list; sign-out works (Settings shows the account email).
+
+**Found tonight:** (1) "Up next" card offers Complete for an already-completed block — status filter miss in TodayViewModel's current/next selection (small, real). (2) **Recurring emulator ANRs, root-caused to `mCurrentFocus=null` + guest load average 43** — the AVD (up 12 days, rebooted mid-run) is CPU-starved on this host (qemu 4.6GB + Android Studio open + Docker); host RAM fine (8.6GB free). All app-side spin suspects were read and cleared (coordinator loop breaks on empty queue; session Flow is an SDK StateFlow; no ticker loops). Setup weak-link entry for the retro; taps DID land (completion applied mid-ANR-dialog).
+
+**Remaining for Gate 1 closure:** two-account isolation pass through the app (B sees nothing) + sign-back-in-as-A hydration proof (fetchSince pull) — blocked only on the emulator settling; server-side isolation already proven (pgTAP 170 + RPC-level owner derivation). Then the Gate 1 checklist with all evidence.
+
 ### 2026-09-12 — Claude Fable 5 (THE VERTICAL SLICE IS ALIVE — live E2E on the emulator)
 
 **Proven on device against the local stack (evidence: `research/shots/gate1-*.png`, server rows, receipts):** create account through the app (a@elay.test) → quick-capture "Book the Vancouver study session" → row lands in **Postgres via the full pipeline** (Room optimistic → outbox → replay → typed RPC → RLS table + 1 idempotency receipt) → "Make it a task" → server task row created, capture parsed+linked → force-stop/restart → session restores, per-account Room data intact, Inbox count correct.

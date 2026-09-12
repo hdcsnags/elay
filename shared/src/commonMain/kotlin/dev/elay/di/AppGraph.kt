@@ -8,6 +8,7 @@ import dev.elay.data.remote.impl.SupabaseAuthGateway
 import dev.elay.data.remote.impl.SupabaseDataGateway
 import dev.elay.data.repository.LocalFirstPlannerRepository
 import dev.elay.sync.impl.OutboxSyncCoordinator
+import dev.elay.sync.impl.ServerHydrator
 import dev.elay.ui.auth.AccountCreator
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
@@ -19,6 +20,7 @@ import io.github.jan.supabase.realtime.Realtime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Root manual-DI graph (brief §1) — no framework, built once at each platform's entry point
@@ -33,7 +35,7 @@ class AppGraph(
     supabaseUrl: String,
     supabaseAnonKey: String,
     databaseBuilderFactory: (accountKey: String) -> RoomDatabase.Builder<ElayDatabase>,
-    appScope: CoroutineScope,
+    val appScope: CoroutineScope,
 ) {
     private val supabaseClient: SupabaseClient =
         createSupabaseClient(supabaseUrl = supabaseUrl, supabaseKey = supabaseAnonKey) {
@@ -58,10 +60,32 @@ class AppGraph(
             }
         }
 
+    /**
+     * The signed-in account's email, straight off the live supabase-kt session — Settings (brief
+     * §3) wants it, but the frozen [AuthGateway]/[SessionState] boundary (ADR-002, `data/remote`
+     * read-only for this seat) carries no email field, only [dev.elay.domain.model.UserId]. Kept
+     * here rather than widening that frozen surface: this is the one place already holding the
+     * real [SupabaseClient]. Null whenever there's no current user or the provider omitted it —
+     * Settings falls back to the user id in that case.
+     */
+    fun currentUserEmail(): String? = supabaseClient.auth.currentUserOrNull()?.email
+
     private val userSessionGraph =
         UserSessionGraph(sessionFlow = sessionFlow, appScope = appScope) { userId ->
             val database = databaseBuilderFactory(userId.value).build()
             val dataGateway = SupabaseDataGateway(supabaseClient)
+            val hydrator =
+                ServerHydrator(
+                    dataGateway = dataGateway,
+                    goalDao = database.goalDao(),
+                    milestoneDao = database.milestoneDao(),
+                    taskDao = database.taskDao(),
+                    captureDao = database.captureDao(),
+                    timeBlockDao = database.timeBlockDao(),
+                )
+            // Fire-and-forget on the app scope (brief §2): must never block startup, and this
+            // scope outlives the screen that happened to be on top when sign-in resolved.
+            appScope.launch { hydrator.hydrateAll() }
             val syncCoordinator =
                 OutboxSyncCoordinator(
                     outboxDao = database.outboxDao(),
