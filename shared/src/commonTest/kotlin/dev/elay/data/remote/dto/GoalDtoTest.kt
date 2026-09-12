@@ -13,12 +13,14 @@ private val wireJson = Json { encodeDefaults = true }
  * contracts/fixtures/goal.json embedded verbatim — commonTest cannot read files from
  * `contracts/` (outside any source set's resources), so the shared fixture text is copied
  * here byte-for-byte instead. Keep this in sync with the file by hand if seat A changes it.
+ * `household_id` -> `pair_id` per contracts/stage1-pairing.md amendment 1 (A2 updates the
+ * actual fixture file to match; this is B3's copy).
  */
 private const val GOAL_FIXTURE = """
 {
   "id": "11111111-1111-4111-8111-111111111111",
   "owner_id": "00000000-0000-0000-0000-000000000001",
-  "household_id": null,
+  "pair_id": null,
   "visibility": "private",
   "title": "Ship ELAY Phase 1",
   "notes": "Ship goals, milestones, tasks, captures, and time blocks end to end.",

@@ -20,7 +20,7 @@ import kotlinx.serialization.Serializable
 data class TaskDto(
     val id: String,
     @SerialName("owner_id") val ownerId: String,
-    @SerialName("household_id") val householdId: String? = null,
+    @SerialName("pair_id") val pairId: String? = null,
     val visibility: String,
     @SerialName("goal_id") val goalId: String? = null,
     @SerialName("milestone_id") val milestoneId: String? = null,
@@ -39,7 +39,7 @@ data class TaskDto(
     @SerialName("updated_at") val updatedAt: String,
 )
 
-/** Domain [Task] has no household/visibility columns (Phase 1 guard forces null/'private'). */
+/** Domain [Task] has no pair/visibility columns (Phase 1 guard forces null/'private'). */
 fun TaskDto.toDomain(): Task =
     Task(
         id = TaskId(id),
@@ -61,12 +61,12 @@ fun TaskDto.toDomain(): Task =
         updatedAt = Instant.parse(updatedAt),
     )
 
-/** Phase 1 guard (contracts/phase1-planner.md §1): household_id null, visibility 'private'. */
+/** Phase 1 guard (contracts/phase1-planner.md §1): pair_id null, visibility 'private'. */
 fun Task.toDto(): TaskDto =
     TaskDto(
         id = id.value,
         ownerId = ownerId.value,
-        householdId = null,
+        pairId = null,
         visibility = Visibility.Private.wire,
         goalId = goalId?.value,
         milestoneId = milestoneId?.value,

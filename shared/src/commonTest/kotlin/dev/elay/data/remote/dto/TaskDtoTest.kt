@@ -7,12 +7,13 @@ import kotlin.test.assertEquals
 /** See [dev.elay.data.remote.dto.GoalDtoTest] for why `encodeDefaults = true` is required here. */
 private val wireJson = Json { encodeDefaults = true }
 
-/** contracts/fixtures/task.json embedded verbatim (see [GoalDtoTest] for why). */
+/** contracts/fixtures/task.json embedded verbatim (see [GoalDtoTest] for why; `household_id` ->
+ * `pair_id` per contracts/stage1-pairing.md amendment 1). */
 private const val TASK_FIXTURE = """
 {
   "id": "33333333-3333-4333-8333-333333333333",
   "owner_id": "00000000-0000-0000-0000-000000000001",
-  "household_id": null,
+  "pair_id": null,
   "visibility": "private",
   "goal_id": "11111111-1111-4111-8111-111111111111",
   "milestone_id": "22222222-2222-4222-8222-222222222222",

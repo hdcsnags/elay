@@ -20,7 +20,7 @@ import kotlinx.serialization.Serializable
 data class TimeBlockDto(
     val id: String,
     @SerialName("owner_id") val ownerId: String,
-    @SerialName("household_id") val householdId: String? = null,
+    @SerialName("pair_id") val pairId: String? = null,
     val visibility: String,
     @SerialName("task_id") val taskId: String? = null,
     val title: String? = null,
@@ -36,7 +36,7 @@ data class TimeBlockDto(
     @SerialName("updated_at") val updatedAt: String,
 )
 
-/** Domain [TimeBlock] has no household/visibility columns (Phase 1 guard forces null/'private'). */
+/** Domain [TimeBlock] has no pair/visibility columns (Phase 1 guard forces null/'private'). */
 fun TimeBlockDto.toDomain(): TimeBlock =
     TimeBlock(
         id = TimeBlockId(id),
@@ -54,7 +54,7 @@ fun TimeBlockDto.toDomain(): TimeBlock =
     )
 
 /**
- * Phase 1 guard (contracts/phase1-planner.md §1): household_id null, visibility 'private'.
+ * Phase 1 guard (contracts/phase1-planner.md §1): pair_id null, visibility 'private'.
  * Domain [TimeBlock] has no `created_at`/`updated_at` (frozen model) — callers supply them.
  */
 fun TimeBlock.toDto(
@@ -64,7 +64,7 @@ fun TimeBlock.toDto(
     TimeBlockDto(
         id = id.value,
         ownerId = ownerId.value,
-        householdId = null,
+        pairId = null,
         visibility = Visibility.Private.wire,
         taskId = taskId?.value,
         title = title,

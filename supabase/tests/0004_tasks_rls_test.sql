@@ -57,28 +57,28 @@ select is_empty(
 
 -- one reject case per CHECK bound
 select throws_ok(
-    $$insert into public.tasks (owner_id, title, household_id, visibility)
+    $$insert into public.tasks (owner_id, title, pair_id, visibility)
       values ('00000000-0000-0000-0000-000000000001', 'sharing not allowed yet',
               '99999999-0000-4000-8000-000000000099', 'private')$$,
-    '23514',
-    'new row for relation "tasks" violates check constraint "tasks_phase1_private_only"',
-    'Phase 1 guard rejects a non-null household_id'
+    '42501',
+    'new row violates row-level security policy for table "tasks"',
+    'RLS WITH CHECK rejects naming a pair the owner is not an active member of (fires before the CHECK)'
 );
 
 select throws_ok(
     $$insert into public.tasks (owner_id, title, visibility)
       values ('00000000-0000-0000-0000-000000000001', 'bad visibility', 'full')$$,
     '23514',
-    'new row for relation "tasks" violates check constraint "tasks_phase1_private_only"',
-    'Phase 1 guard rejects a non-private visibility even with household_id null'
+    'new row for relation "tasks" violates check constraint "tasks_visibility_pair_check"',
+    'a non-private row must name a pair (Stage 1 rule)'
 );
 
 select throws_ok(
     $$insert into public.tasks (owner_id, title, visibility)
       values ('00000000-0000-0000-0000-000000000001', 'bad enum', 'shared-with-everyone')$$,
     '23514',
-    'new row for relation "tasks" violates check constraint "tasks_phase1_private_only"',
-    'non-private visibility is unreachable in Phase 1: the phase1 guard rejects it first (enum CHECK becomes testable when Phase 2 drops the guard)'
+    'new row for relation "tasks" violates check constraint "tasks_visibility_check"',
+    'the visibility enum CHECK is reachable again after the Stage 1 guard drop'
 );
 
 select throws_ok(

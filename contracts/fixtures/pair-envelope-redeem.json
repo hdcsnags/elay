@@ -1,0 +1,25 @@
+{
+  "outcome": "applied",
+  "action": "redeem_pair_invite",
+  "pair": {
+    "pair_id": "70000000-0000-4000-8000-000000000001",
+    "status": "active",
+    "version": 3,
+    "channel_topic": "pair:70000000-0000-4000-8000-000000000001:80000000-0000-4000-8000-000000000002",
+    "members": [
+      {
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "display_name": "User A",
+        "home_tz": "America/Toronto",
+        "joined_at": "2026-09-12T19:00:00Z"
+      },
+      {
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "display_name": "User B",
+        "home_tz": "America/Vancouver",
+        "joined_at": "2026-09-12T19:05:00Z"
+      }
+    ],
+    "active_invite_expires_at": null
+  }
+}

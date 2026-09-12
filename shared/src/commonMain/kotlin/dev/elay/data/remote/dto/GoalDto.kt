@@ -20,7 +20,7 @@ import kotlinx.serialization.Serializable
 data class GoalDto(
     val id: String,
     @SerialName("owner_id") val ownerId: String,
-    @SerialName("household_id") val householdId: String? = null,
+    @SerialName("pair_id") val pairId: String? = null,
     val visibility: String,
     val title: String,
     val notes: String? = null,
@@ -32,8 +32,9 @@ data class GoalDto(
 )
 
 /**
- * Domain [Goal] has no household/visibility columns yet — Phase 1's guard
- * (contracts/phase1-planner.md §1) forces `household_id null, visibility
+ * Domain [Goal] has no pair/visibility columns yet — Phase 1's guard
+ * (contracts/phase1-planner.md §1; renamed `household_id`->`pair_id` per
+ * contracts/stage1-pairing.md amendment 1) forces `pair_id null, visibility
  * 'private'` at the schema level, so dropping them here loses nothing.
  */
 fun GoalDto.toDomain(): Goal =
@@ -49,12 +50,12 @@ fun GoalDto.toDomain(): Goal =
         updatedAt = Instant.parse(updatedAt),
     )
 
-/** Phase 1 guard (contracts/phase1-planner.md §1): household_id null, visibility 'private'. */
+/** Phase 1 guard (contracts/phase1-planner.md §1): pair_id null, visibility 'private'. */
 fun Goal.toDto(): GoalDto =
     GoalDto(
         id = id.value,
         ownerId = ownerId.value,
-        householdId = null,
+        pairId = null,
         visibility = Visibility.Private.wire,
         title = title,
         notes = notes,
