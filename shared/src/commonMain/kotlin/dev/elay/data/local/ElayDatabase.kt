@@ -31,6 +31,10 @@ abstract class ElayDatabase : RoomDatabase() {
     abstract fun timeBlockDao(): TimeBlockDao
 
     abstract fun plannerWriteDao(): PlannerWriteDao
+
+    // Additive accessor (seat R grant, contracts/phase1-planner.md §5): backs
+    // dev.elay.data.repository.LocalFirstPlannerRepository's optimistic staging writes.
+    abstract fun plannerStagingDao(): PlannerStagingDao
 }
 
 // Room's KSP generates the actual implementations per platform.
