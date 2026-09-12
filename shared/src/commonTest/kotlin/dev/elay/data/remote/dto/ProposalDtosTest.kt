@@ -320,6 +320,80 @@ class ProposalDtosTest {
         assertNull(decoded.proposal)
     }
 
+    /** `rpc_list_proposals` returns `{"items":[…],"next_cursor":…}` (verified against the live
+     * RPC 2026-09-12) — the transport unwraps [ProposalListEnvelopeDto.items], and the caller's
+     * commitment arrives under `my_commitment` (the get/list projection key), which [toDomain]
+     * must surface as [dev.elay.domain.model.ProposalSummary.commitment]. */
+    @Test
+    fun listEnvelopeDecodesItemsCursorAndMyCommitment() {
+        val cursor = "2026-09-12T09:01:14Z,6f721329-555b-4416-8fa6-b3744f845e98"
+        val decoded =
+            Json.decodeFromString(
+                ProposalListEnvelopeDto.serializer(),
+                """{"items":[$ACCEPTED_PROPOSAL_FIXTURE],"next_cursor":"$cursor"}""",
+            )
+        assertEquals(1, decoded.items.size)
+        assertEquals(cursor, decoded.nextCursor)
+        assertEquals(
+            ProposalState.Accepted,
+            decoded.items
+                .single()
+                .toDomain()
+                .state,
+        )
+
+        val empty = Json.decodeFromString(ProposalListEnvelopeDto.serializer(), """{"items":[],"next_cursor":null}""")
+        assertEquals(emptyList(), empty.items)
+        assertNull(empty.nextCursor)
+    }
+
+    @Test
+    fun myCommitmentKeyMapsToDomainCommitment() {
+        val dto = minimalProposalDto(status = "accepted")
+        val withMyCommitment =
+            Json.decodeFromString(
+                ProposalSummaryDto.serializer(),
+                wireJson
+                    .encodeToString(ProposalSummaryDto.serializer(), dto)
+                    .replace("\"my_commitment\":null", "\"my_commitment\":$COMMITMENT_FIXTURE"),
+            )
+        assertEquals(
+            ProposalId("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            withMyCommitment.toDomain().commitment?.proposalId,
+        )
+    }
+
+    /** The live `proposal_response_to_jsonb` projection omits `proposal_id` (responses arrive
+     * nested under their proposal) — found live 2026-09-12 when the required field made the whole
+     * list decode throw. The DTO must tolerate the absence and [toDomain] must backfill from the
+     * parent proposal's id. */
+    @Test
+    fun responseWithoutProposalIdDecodesAndInheritsParentId() {
+        val wireResponse =
+            """{"id":"44444444-4444-4444-8444-444444444444","revision_no":1,
+               |"user_id":"00000000-0000-0000-0000-000000000002","response":"accept",
+               |"candidate_idx":0,"counter_revision":null,"responded_at":"2026-09-12T20:00:00Z"}
+            """.trimMargin().replace("\n", "")
+        val decoded = Json.decodeFromString(ProposalResponseDto.serializer(), wireResponse)
+        assertNull(decoded.proposalId)
+        assertEquals(
+            ProposalId("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            decoded.toDomain(parentProposalId = ProposalId("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")).proposalId,
+        )
+
+        val proposal =
+            Json.decodeFromString(
+                ProposalSummaryDto.serializer(),
+                wireJson
+                    .encodeToString(ProposalSummaryDto.serializer(), minimalProposalDto(status = "accepted"))
+                    .replace("\"responses\":[]", "\"responses\":[$wireResponse]"),
+            )
+        assertEquals(
+            listOf(proposal.id),
+            proposal.toDomain().responses.map { it.proposalId.value },
+        )
+    }
+
     /** council/stage2-timelock-sol.md §4: "[ProposalState] matching all eight server strings" —
      * every entry must round-trip through [ProposalSummaryDto.status] with its exact wire value. */
     @Test

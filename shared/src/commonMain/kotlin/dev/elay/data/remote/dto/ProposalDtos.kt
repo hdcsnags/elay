@@ -90,7 +90,10 @@ fun ProposalRevision.toDto(): ProposalRevisionDto =
 @Serializable
 data class ProposalResponseDto(
     val id: String,
-    @SerialName("proposal_id") val proposalId: String,
+    /** Nullable: the live `proposal_response_to_jsonb` projection omits it — responses only ever
+     * arrive nested under their proposal, so [toDomain] takes the parent's id as the fallback
+     * (found live 2026-09-12: the required field made the whole list decode throw). */
+    @SerialName("proposal_id") val proposalId: String? = null,
     @SerialName("revision_no") val revisionNo: Int,
     @SerialName("user_id") val userId: String,
     val response: String,
@@ -99,10 +102,12 @@ data class ProposalResponseDto(
     @SerialName("responded_at") val respondedAt: String,
 )
 
-fun ProposalResponseDto.toDomain(): ProposalResponse =
+fun ProposalResponseDto.toDomain(parentProposalId: ProposalId? = null): ProposalResponse =
     ProposalResponse(
         id = id,
-        proposalId = ProposalId(proposalId),
+        proposalId =
+            proposalId?.let(::ProposalId)
+                ?: requireNotNull(parentProposalId) { "response $id: no proposal_id on the wire and no parent id" },
         revisionNo = revisionNo,
         userId = UserId(userId),
         response = ResponseKind.entries.first { it.wire == response },
@@ -178,6 +183,19 @@ data class ProposalSummaryDto(
     val commitment: CommitmentDto? = null,
 )
 
+/**
+ * `rpc_list_proposals` wire envelope — `{"items":[…summaries…],"next_cursor":…}` (verified against
+ * the live RPC via curl at merge, 2026-09-12; replaces the bare-array assumption flagged in
+ * [dev.elay.data.remote.impl.SupabaseProposalRepository]'s transport). `next_cursor` is unused by
+ * the frozen client surface (no pagination controls) but decoded so deeper cursor support has the
+ * field ready.
+ */
+@Serializable
+data class ProposalListEnvelopeDto(
+    val items: List<ProposalSummaryDto> = emptyList(),
+    @SerialName("next_cursor") val nextCursor: String? = null,
+)
+
 fun ProposalSummaryDto.toDomain(): ProposalSummary =
     ProposalSummary(
         id = ProposalId(id),
@@ -194,8 +212,10 @@ fun ProposalSummaryDto.toDomain(): ProposalSummary =
         createdAt = Instant.parse(createdAt),
         updatedAt = Instant.parse(updatedAt),
         revisions = revisions.map { it.toDomain() },
-        responses = responses.map { it.toDomain() },
-        commitment = commitment?.toDomain(),
+        responses = responses.map { it.toDomain(parentProposalId = ProposalId(id)) },
+        // The live projection's key is `my_commitment` (rpc_get_proposal/rpc_list_proposals);
+        // `commitment` kept as a fallback for the mutation envelope's older fixture shape.
+        commitment = (myCommitment ?: commitment)?.toDomain(),
     )
 
 /**

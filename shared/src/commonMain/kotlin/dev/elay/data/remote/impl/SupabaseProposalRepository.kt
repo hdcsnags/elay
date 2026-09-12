@@ -1,6 +1,7 @@
 package dev.elay.data.remote.impl
 
 import dev.elay.data.remote.dto.CandidateDto
+import dev.elay.data.remote.dto.ProposalListEnvelopeDto
 import dev.elay.data.remote.dto.ProposalRpcEnvelopeDto
 import dev.elay.data.remote.dto.ProposalSummaryDto
 import dev.elay.data.remote.dto.toDomain
@@ -52,14 +53,11 @@ private const val HTTP_SERVER_ERROR_FLOOR = 500
  * instead.
  */
 internal interface ProposalTransport {
-    /** `rpc_list_proposals(scope='active')`. ASSUMPTION flagged for the lead/A3 diff at merge
-     * (contract §A.2 names the RPC and its `scope`/`cursor` params but not a wire envelope for
-     * the list result): this transport treats the response as a bare JSON array of
-     * [ProposalSummaryDto] and always passes a `null` cursor, i.e. only the first page is
-     * fetched. The frozen client surface itself has no pagination controls
-     * ([ProposalRepository.observeActive] is a plain `Flow<List<ProposalSummary>>`), so deeper
-     * cursor support is not blocking for this seat but should be reconciled against A3's actual
-     * RPC return shape.
+    /** `rpc_list_proposals(scope='active')`. Wire shape verified against the live RPC at merge
+     * (2026-09-12): `{"items":[…],"next_cursor":…}` — decoded via [ProposalListEnvelopeDto],
+     * resolving the bare-array assumption this seat originally flagged. Still passes a `null`
+     * cursor, i.e. only the first page is fetched: the frozen client surface has no pagination
+     * controls ([ProposalRepository.observeActive] is a plain `Flow<List<ProposalSummary>>`).
      */
     suspend fun fetchActive(): List<ProposalSummaryDto>
 
@@ -108,7 +106,8 @@ private class SupabaseRealtimeProposalTransport(
                     put("p_scope", scope)
                     put("p_cursor", JsonNull)
                 },
-            ).decodeAs()
+            ).decodeAs<ProposalListEnvelopeDto>()
+            .items
 
     override suspend fun createProposal(command: CreateProposal): ProposalRpcEnvelopeDto =
         callProposalRpc(
@@ -336,11 +335,13 @@ class SupabaseProposalRepository internal constructor(
     }
 
     private suspend fun refetch() {
-        runCatchingSuspend { transport.fetchActive() }.getOrNull()?.let { dtos ->
-            mutableActive.value = dtos.map { it.toDomain() }
-        }
-        runCatchingSuspend { transport.fetchHistory() }.getOrNull()?.let { dtos ->
-            mutableHistory.value = dtos.map { it.toDomain() }
-        }
+        runCatchingSuspend { transport.fetchActive() }
+            .onFailure { println("ELAY proposal refetch failure (active): $it") }
+            .getOrNull()
+            ?.let { dtos -> mutableActive.value = dtos.map { it.toDomain() } }
+        runCatchingSuspend { transport.fetchHistory() }
+            .onFailure { println("ELAY proposal refetch failure (history): $it") }
+            .getOrNull()
+            ?.let { dtos -> mutableHistory.value = dtos.map { it.toDomain() } }
     }
 }

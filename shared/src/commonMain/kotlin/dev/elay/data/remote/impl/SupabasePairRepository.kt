@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -155,6 +156,7 @@ private class SupabaseRealtimePairTransport(
     override suspend fun subscribe(topic: String): PairChannelHandle {
         val channel = client.realtime.channel(topic) { isPrivate = true }
         channel.subscribe()
+        println("ELAY realtime subscribe: topic=$topic status=${channel.status.value} socket=${client.realtime.status.value}")
         return SupabaseRealtimeChannelHandle(client, channel)
     }
 
@@ -189,7 +191,7 @@ private class SupabaseRealtimeChannelHandle(
             channel.broadcastFlow(EVENT_PROPOSAL_CREATED).map { Unit },
             channel.broadcastFlow(EVENT_PROPOSAL_UPDATED).map { Unit },
             channel.broadcastFlow(EVENT_COMMITMENT_CHANGED).map { Unit },
-        )
+        ).onEach { println("ELAY realtime proposal event on ${channel.topic}") }
 
     override suspend fun close() {
         client.realtime.removeChannel(channel)

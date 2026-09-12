@@ -15,6 +15,21 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 2 TIME-LOCK LIVE E2E COMPLETE — incl. the realtime flip, and a Realtime-join root-cause)
+
+**The signature feature is alive on device (shots `stage2-e2e-16..27.png`, client logs, server rows):** A's Together feed renders the **accepted lock card** ("TIME LOCK CONFIRMED · Sun, Sep 13 · 10:00–11:00 AM for you / 2:00–3:00 PM for b2 · On both plans") and the **incoming card** with per-candidate dual-time + day-crossover badge + deadline countdown, per Gemini's §B. **THE REALTIME FLIP IS PROVEN LIVE** (the Stage-1 deferral, closed): with A's screen untouched and foregrounded, B cancelled a proposal via authenticated curl → `pair.proposal_updated.v1` arrived over the private channel (client log line) → the card flipped to "PROPOSAL WITHDRAWN · b2 withdrew this proposal." in seconds. Plan (2026-09-13) renders the shared_lock block with the "Together" marker. pgTAP **402/402**; Windows gate green (248 host tests, real APK verified fresh).
+
+**Three integration bugs found ONLY live, all fixed with migrations/tests:**
+1. `rpc_list_proposals` wrapped items in `{"items":[…],"next_cursor":…}` while B4's transport parsed a bare array (B4's own flagged UNVERIFIED item) → envelope DTO + unwrap.
+2. The list projection omitted `revisions`/`responses`/`my_commitment`, deviating from Sol's contract ("list… returns snapshots, revisions, responses, caller-owned commitment") — cards need `revisions[].candidates`, so every card silently dropped → migration `20260912150000` (list now byte-identical to `rpc_get_proposal`'s projection, pgTAP 0017 pins it incl. peer-commitment absence). Client: `my_commitment` is the wire key (`commitment` kept as fixture fallback); response rows arrive without `proposal_id` (nested) → nullable DTO field + parent-id backfill.
+3. **Every private-channel join was Unauthorized since Stage 1** — root-caused by RAISE-LOG instrumentation inside Realtime's own auth transaction: its read probe row has `private=false, event=null`, and Stage 1's policy required `private is true` → join check computed read=false forever (why the Stage-1 realtime observation kept slipping). Fix: migration `20260912160000` drops that conjunct (topic-function scoping unchanged and re-proven: fabricated topic + non-member still denied), pgTAP 0018 pins the probe-row shape. **House rule: policies on realtime.messages must never predicate on `private` or `event`.**
+
+**Orchestrator self-report (RETRO):** one gate ran `gradlew … | tail` which swallowed a BUILD FAILED into exit 0 — a stale APK got E2E'd for a round. `/build-gate` now mandates `set -o pipefail` + a GATE_GREEN marker. Also added: refetch-failure println diagnostics (the silent-swallow lesson, third occurrence), realtime subscribe/event diagnostics (kept — they made the root-cause possible).
+
+**Known small defects (C3 polish list):** "Can't" button wraps vertically on the incoming card (row overflow); proposal titles show composer scaffold text ("Study session. by"); pair card zone rows read "UTC" bare. Composer full UI path, counter flow, and conflict hints remain per contract scope notes.
+
+**Next:** Astra pre-gate verification of the full Stage 2 record (its reserved lane), then stage closure + Stage 3 (web RSVP) per master-plan-v2.
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 1 PAIRING LIVE: invite → redeem → paired, on device)
 
 **Proven (shots `stage1-0*.png` + server rows):** A creates invite → real HMAC-derived code `024S1-AC50E` rendered with expiry; sign-out; B (new account) redeems the code → server: 2 active members, invite redeemed, version bumped; app renders **"You're paired"** with both members + zones. C2's Together/detail surfaces + Up-next fix merged (173 Kotlin tests); lead wired SupabasePairRepository into the user scope (closed on teardown). **pgTAP now 263/263 — and passing against a DIRTY live DB**, which is stricter than the reset-only runs.
