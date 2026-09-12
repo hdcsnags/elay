@@ -31,5 +31,10 @@ Opening the app today: 3 of 6 surfaces on FAKE in-memory data, no sign-in, no pe
 4. **No Mac locally** — handled cleanly by CI (free public-repo macOS runners), genuinely not a blocker in 2026.
 5. Windows toolchain paper cuts (compileSdkMinor/37.0, gradlew exec bit, CRLF) — each cost minutes and is now recorded; an era tax, not a blocker.
 
+### Stage 3 verification round (2026-09-12) — what the process caught
+- **Two independent verifiers converged on the same blocker** (the web-counter dead end) from different methods (Opus: live SQL repros; Gemini: static contract diff) — the strongest signal yet that the verify-before-close pattern works. The blocker's root cause is a recurring MODEL failure class worth naming: **a seat pattern-matching a contract sentence's surface ("web counter mints nothing" → "counter forbidden") instead of its stated rationale** — the same §A paragraph explained the rule. Guardrail idea for the next run: contracts should phrase prohibitions as "X is forbidden BECAUSE Y; Z remains required".
+- The verifier caught pgTAP DEFENDING a defect (the deny-test pinned the bug) — green tests prove conformance to the test author's reading, not to the contract. Independent verification remains non-optional.
+- Codex credits ran out mid-run (setup): Sol+Astra replaced by Opus subagents + Gemini with no quality loss this round — the Opus verification passes were the deepest of the project.
+
 ## Can an app run start-to-finish in 2026?
 Provisional answer after day 1: the pieces all exist — council argues, seats build against contracts, verification catches the lies, CI holds the floor. What breaks the illusion is orchestration continuity (fixed) and sequencing toward the user's definition of done (fixed as of tonight). The rest is throughput. This section gets a final answer when ELAY either is, or is not, a usable product with Michael never having been the blocker.
