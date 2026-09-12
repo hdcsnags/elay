@@ -30,6 +30,7 @@ npx supabase test db --local    # pgTAP suites in supabase/tests/ — assert FIE
 Every migration ships WITH grants + RLS + paired allow/deny pgTAP tests (spec §14.2, ADR-007). `supabase stop` when done.
 
 ## Emulator pass
+**Machine lessons (2026-09-12):** `adb reverse tcp:54321 tcp:54321` is REQUIRED for the app to reach the local Supabase stack (the 10.0.2.2 NAT path times out on this Windows/Docker setup) and does NOT survive an emulator reboot — re-run it after every boot. Reboot the AVD before long E2E sessions: a stale guest (12 days uptime) produced system-wide ANRs (SystemUI included, guest load 43) that were NOT app bugs. ANR dialogs swallow `input text` — dismiss (Wait) before typing, and screenshot-verify each step; taps still land under load, just late.
 ```
 "D:/AndroidStudio/platform-tools/adb.exe" devices
 "D:/AndroidStudio/emulator/emulator.exe" -avd Pixel_9_Pro_XL12 -no-snapshot-load -no-boot-anim &   # -no-window for headless

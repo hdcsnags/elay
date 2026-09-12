@@ -6,14 +6,28 @@
 
 | Item | Value |
 |---|---|
-| Phase | **1 — personal planner** (design round dispatched; coder rounds next) |
-| Open gate | **Gate 1 — personal planner** (spec §11 Phase 1). Gates 0a AND 0b **CLOSED 2026-09-11** — 0a: `council/gate-0a-record/` (Sol+Gemini argued, Astra verified 0.94, challenges web-checked); 0b: checklist in the 0b session entry, all ticked with evidence; CI green ×3 on `github.com/hdcsnags/elay` (android 34563974065, db 34563876200, ios-verify 34565336990) |
+| Phase | **1 CLOSED → Stage 1 of master-plan-v2 next: pairing + push (Gate 2 scope)** |
+| Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
 | Toolchain sheet | `research/toolchain-2026-09.md` (Sonnet research 2026-09-10; UNVERIFIED items flagged — re-check at Gate 0b) |
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-12 — Claude Fable 5 (GATE 1 CLOSED — full evidence)
+
+**Checklist (spec §11 Phase 1, surfaces amended by master-plan-v2's pairs pivot):**
+- [x] **Sign-in works**: create account, sign in, sign out, session restore after force-stop, restore-loading state (no flash post-W2). Evidence: `gate1-*.png`, auth.users rows.
+- [x] **capture → clarify → schedule → complete on the emulator**: capture synced (Postgres row + receipt) → "Make it a task" (task row, capture parsed+linked) → schedule sheet (time_blocks row, UTC+`America/New_York` IANA zone) → complete (status=completed, version=2). Every step server-verified live.
+- [x] **Two test accounts fully isolated**: pgTAP 170/170 (DB layer, incl. guessed-UUID + anon), RPC-level owner derivation, and THROUGH THE APP: `bb@elay.test` signed in fresh and saw zero of A's objects (`gate1-25-B.png`); per-account Room DB files.
+- [x] **Views exist** (per the pivot's 4-tab contract): Today (up-next + countdown + schedule), Plan (timeline + add-block + unscheduled rail), Inbox (capture-first), Together (Stage-1 placeholder by design), Settings (account + sign-out).
+- [x] **Fresh-install hydration**: `pm clear` + sign-in as A restored the planner from the server (`gate1-26-hydrated.png`) — ServerHydrator/fetchSince works.
+- [x] Windows gate green (124 tests) + CI ×3 green; no secrets in tree.
+
+**Environment epilogue:** the recurring ANRs were system-wide — **SystemUI itself ANR'd** (screenshot) with guest load 43 after 12 days emulator uptime + Docker on one box; post-reboot the app ran clean. Retro setup-lane entry confirmed; app code cleared. Machine lesson for `/build-gate`: `adb reverse` does NOT survive reboot (re-run it), reboot the AVD before long E2E sessions.
+
+**Deferred (named, tracked):** Task/Goal detail surfaces (C2 seat, next); Up-next completed-block filter bug; completed blocks visually indistinct on the timeline; sheet stepper UX is placeholder-grade (design lane, Gemini specs); FAILED outbox rows need a user-visible retry path.
 
 ### 2026-09-12 — Claude Fable 5 (Gate 1 E2E: full loop proven; isolation/hydration legs pending emulator health)
 
