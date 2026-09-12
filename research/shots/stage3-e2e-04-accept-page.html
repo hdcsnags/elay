@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ELAY · Time lock response</title>
+<style>:root{color-scheme:light dark;--bg:#f4f3f7;--surface:#ffffff;--on:#1c1b1f;--on-var:#49454f;
+--primary:#3a5b8c;--primary-on:#ffffff;--outline:#c9c5d0;--accent-bg:#e7edf7;--danger-bg:#fff3f0;
+--pill-bg:#eef0f4}
+@media (prefers-color-scheme:dark){:root{--bg:#141318;--surface:#201f26;--on:#e7e1e8;--on-var:#cac4d0;
+--primary:#9db8e6;--primary-on:#0c2340;--outline:#49454f;--accent-bg:#1f2b3d;--danger-bg:#2b201d;
+--pill-bg:#2a2830}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--on);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+-webkit-text-size-adjust:100%}
+.wrap{max-width:480px;margin:0 auto;padding:16px 16px 40px}
+.topbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 2px 16px;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.04em;color:var(--primary)}
+.identity{font-size:12.5px;color:var(--on-var);text-align:right}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:16px;padding:20px}
+.meta-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-var);font-weight:600}
+.countdown{font-size:12.5px;color:var(--on-var);font-weight:600}
+h1.title{font-size:20px;font-weight:600;margin:10px 0 2px}
+.subtitle{margin:0 0 16px;color:var(--on-var);font-size:14px}
+.candidates{display:flex;flex-direction:column;gap:10px;margin:0 0 16px}
+.candidate{display:block;border:1px solid var(--outline);border-radius:12px;padding:12px 14px;cursor:pointer;position:relative}
+.candidate input[type=radio]{position:absolute;top:14px;left:14px;width:20px;height:20px;margin:0}
+.candidate .body{display:block;padding-left:30px}
+.candidate input[type=radio]:checked ~ .body{color:var(--on)}
+.candidate:has(input:checked){border-color:var(--primary);background:var(--accent-bg)}
+.line{display:block}
+.line.primary{font-weight:600;font-size:15px}
+.line.secondary{font-weight:400;font-size:13px;color:var(--on-var);margin-top:2px}
+.dst-caption{display:block;margin-top:6px;font-size:12px;color:var(--on-var);background:var(--pill-bg);
+border-radius:8px;padding:5px 8px}
+.btn{display:block;width:100%;min-height:48px;border-radius:12px;font-size:15px;font-weight:600;
+border:1px solid transparent;cursor:pointer;text-align:center;padding:10px 16px;text-decoration:none;
+box-sizing:border-box}
+.btn-primary{background:var(--primary);color:var(--primary-on);margin-bottom:10px}
+.btn-outline{background:transparent;border-color:var(--outline);color:var(--on)}
+.btn-ghost{background:transparent;color:var(--on-var);border-color:transparent}
+.btn[disabled]{opacity:.6;cursor:default}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+.footnote{text-align:center;color:var(--on-var);font-size:12.5px;margin:14px 0 0}
+details.counter{margin-top:16px;border-top:1px solid var(--outline);padding-top:14px}
+details.counter summary{list-style:none;cursor:pointer;display:block;width:100%;min-height:48px;
+border-radius:12px;border:1px solid var(--outline);color:var(--on);font-weight:600;font-size:15px;
+text-align:center;padding:12px 16px;box-sizing:border-box}
+details.counter summary::-webkit-details-marker{display:none}
+details.counter[open] summary{margin-bottom:14px}
+.field{display:block;margin-bottom:12px;font-size:13px;color:var(--on-var);font-weight:600}
+.field input[type=date],.field input[type=time]{display:block;width:100%;margin-top:6px;padding:10px;
+border-radius:10px;border:1px solid var(--outline);background:var(--surface);color:var(--on);font-size:15px}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.pill{position:relative}
+.pill input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.pill span{display:inline-block;padding:8px 14px;border-radius:999px;border:1px solid var(--outline);
+font-size:13.5px;min-height:32px;line-height:16px}
+.pill input:checked ~ span{background:var(--primary);color:var(--primary-on);border-color:var(--primary)}
+.preview{background:var(--pill-bg);border-radius:10px;padding:10px 12px;font-size:13px;margin:0 0 12px}
+.preview .line{margin-top:2px}
+.hint{font-size:12.5px;color:var(--on-var);margin:0 0 14px}
+.edge-icon{width:44px;height:44px;border-radius:50%;background:var(--accent-bg);display:flex;
+align-items:center;justify-content:center;margin:2px auto 16px;font-size:22px}
+.edge-title{font-size:20px;font-weight:600;text-align:center;margin:0 0 8px}
+.edge-body{color:var(--on-var);font-size:14.5px;text-align:center;margin:0 0 20px}
+.lock-card{background:var(--accent-bg);border-radius:12px;padding:14px;margin:0 0 16px}
+.lock-card .line.primary{font-size:16px}
+.small-note{text-align:center;color:var(--on-var);font-size:12.5px;margin-top:10px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="topbar">
+<span class="brand">ELAY</span>
+
+</header>
+
+<main class="card">
+  <div class="edge-icon" aria-hidden="true">✓</div>
+  <h1 class="edge-title">Time lock confirmed</h1>
+  <p class="edge-body">Option 1 is locked in. On both plans.</p>
+  <div class="lock-card">
+    <span class="line primary">Thu, Sep 17 · 2:00 PM – 3:00 PM for you</span>
+    <span class="line secondary">Thu, Sep 17 · 10:00 AM – 11:00 AM for a</span>
+  </div>
+  <p class="small-note">On both plans · Ready in your schedule</p>
+  <a class="btn btn-primary" href="elay://plan">Open ELAY</a>
+</main>
+
+</div>
+
+</body>
+</html>
