@@ -36,5 +36,9 @@ Opening the app today: 3 of 6 surfaces on FAKE in-memory data, no sign-in, no pe
 - The verifier caught pgTAP DEFENDING a defect (the deny-test pinned the bug) — green tests prove conformance to the test author's reading, not to the contract. Independent verification remains non-optional.
 - Codex credits ran out mid-run (setup): Sol+Astra replaced by Opus subagents + Gemini with no quality loss this round — the Opus verification passes were the deepest of the project.
 
+### Stage 4 round (2026-09-12) — the verifier audited the ORCHESTRATOR
+- The deepest finding class this round was **honesty defects the lead shipped**: copy claiming an external calendar that cannot exist, a rate-limited "couldn't check" rendered as "Free", and — most instructive — **the lead's own evidence package failing** (byte-identical screenshots under filenames advertising a capture that wasn't in frame) and **a false "fixed" claim in STATE** (an F7 sed that never matched). Verification catches the orchestrator too; that is the system working, and the reason the verify-before-close pattern must survive into the next run regardless of who leads.
+- Pattern for the ledger: prose honesty and artifact honesty are separate properties — STATE's text was accurate while its cited artifact set was not. Closure checklists should verify artifact md5-distinctness and filename-content match, not just that files exist.
+
 ## Can an app run start-to-finish in 2026?
 Provisional answer after day 1: the pieces all exist — council argues, seats build against contracts, verification catches the lies, CI holds the floor. What breaks the illusion is orchestration continuity (fixed) and sequencing toward the user's definition of done (fixed as of tonight). The rest is throughput. This section gets a final answer when ELAY either is, or is not, a usable product with Michael never having been the blocker.
