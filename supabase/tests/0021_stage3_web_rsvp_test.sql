@@ -13,7 +13,7 @@
 --   accepted-from-web produces exactly two shared_lock blocks + two commitments -> T-WEB-ACCEPT-*
 --   byte-identical response replay                       -> T-WEB-REPLAY
 --   web decline                                          -> T-WEB-DECLINE
---   web counter mints nothing (rejected)                 -> T-WEB-COUNTER-DENY
+--   web counter applies, mints nothing, self-revokes     -> T-WEB-COUNTER-*
 --   mismatched body ignored (pass-through validation, no bypass) -> T-WEB-MISMATCH
 --   stale-revision-from-web / countered-since-mint        -> T-COUNTERED-*
 --   minted-then-cancelled                                 -> T-CANCELLED-*

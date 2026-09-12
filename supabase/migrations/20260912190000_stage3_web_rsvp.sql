@@ -62,9 +62,11 @@ comment on table public.rsvp_token_hmac_keys is
 insert into public.rsvp_token_hmac_keys (id, key) values (true, extensions.gen_random_bytes(32));
 
 alter table public.rsvp_token_hmac_keys enable row level security;
-revoke all on table public.rsvp_token_hmac_keys from public, anon, authenticated;
--- no policies: authenticated/anon/service_role get zero rows even if a future migration
--- grants SELECT (matches pair_invite_hmac_keys exactly).
+revoke all on table public.rsvp_token_hmac_keys from public, anon, authenticated, service_role;
+-- no policies: authenticated/anon get zero rows even if a future migration grants SELECT.
+-- NOTE (re-verify): service_role has rolbypassrls, so a table grant WOULD expose the key
+-- to it -- hence the explicit service_role revoke above. The SECURITY DEFINER RPCs read
+-- the key as the migration owner, not as service_role.
 
 -- =====================================================================================
 -- 1. rsvp_tokens (contract §A/§3): hash-at-rest, full binding set recorded at mint,

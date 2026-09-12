@@ -6,7 +6,7 @@
 
 | Item | Value |
 |---|---|
-| Phase | **Stages 1+2 CLOSED (pairing + time-lock negotiation, live E2E + verified) → Stage 3: web RSVP per master-plan-v2** |
+| Phase | **Stages 1+2+3 CLOSED (pairing · time-lock negotiation · web RSVP — all live-E2E'd + independently verified) → Stage 4: honest availability (calendar conflict-read; Google OAuth needs Michael)** |
 | Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
@@ -14,6 +14,17 @@
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-12 — Claude Fable 5 (STAGE 3 CLOSED)
+
+**Closure checklist, all with evidence:**
+- [x] Contract implemented (Opus §A security + Gemini §B web UX + lead amendments): migration `20260912190000` (+ pre-gate fix round), edge function, client mint + share UI; pgTAP **519/519** (21 suites).
+- [x] Full circle live: app-minted link → browser page → no-JS accept AND the F3-fixed **counter** ("Alternative suggested", revision 2, zero new tokens) → realtime flip on the proposer's app. Browser-leg captures committed (`stage3-e2e-04..06`).
+- [x] Independent verification ×2 rounds: Opus (round 1 conf 0.88 — 1 blocker F3 + 8 findings; round 2 **flips to ready, conf 0.91**, every fix re-proven with its own rolled-back repros incl. file↔live byte-convergence of all 10 functions) and Gemini (conf independently converged on the SAME blocker). All accepted findings fixed: counter enabled (A4 had misread "web counter mints nothing" as a ban — the exact §A sentence explains it forbids minting a proposer-addressed token), helper ACLs, rate-limit cap 30 + XFF last-element, non-live tokens read nothing but {state, proposer name}, 26-char malleability guard, ARIA/copy fidelity, service_role revoked from the HMAC key table (its rolbypassrls made the old "zero rows" comment false — same claim to audit on Stage 1's `pair_invite_hmac_keys`, tracked).
+- [x] CI ×3 green on `dad3bd0`+residuals; no capability token in any committed artifact (verifier grep-proven).
+
+**Tracked residuals:** F7 wrapper replay/22023 branches unreachable from the Edge path (benign — correct page shown; SQL layer pinned); `RSVP_LINK_BASE` localhost until a hosted project exists (PING); Stage-1 `pair_invite_hmac_keys` comment audit; countered-page copy now generic voice (attribution needs a countered_by flag someday).
+
 
 ### 2026-09-12 — Claude Fable 5 (STAGE 3 FULL CIRCLE PROVEN LIVE: app-minted link → browser accept → realtime flip)
 

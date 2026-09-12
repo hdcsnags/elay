@@ -797,7 +797,9 @@ function renderCounteredSinceMintPage(proposerName: string): string {
   return renderEdgePage({
     icon: "↻",
     title: "New times suggested",
-    body: `${esc(proposerName)} suggested different times after this link was sent. Open the app to view the latest options.`,
+    // Generic voice (re-verify F9-copy note): on a revision-1 token the counter can only
+    // have come from the RECIPIENT, so naming the proposer here would misattribute it.
+    body: `New times were suggested after this link was sent. Open the app to view the latest options.`,
     primaryLabel: "Open latest in ELAY",
     primaryHref: OPEN_ELAY_HREF,
   });
@@ -1073,7 +1075,9 @@ async function handlePostRespond(token: string, req: Request, clientIp: string |
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const { token, sub } = splitRoute(url.pathname);
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  // LAST element, not first (re-verify note): the first XFF hop is client-supplied;
+  // the trusted proxy appends the real peer last.
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? null;
 
   if (!token) {
     return htmlResponse(renderNotFoundPage(), 404);
