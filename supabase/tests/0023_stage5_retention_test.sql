@@ -25,7 +25,7 @@
 --     byte-identical                                                          -> T-PEER-ISO-*
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(84);
+select plan(86);
 
 -- ===================================================================================
 -- structure
@@ -491,6 +491,22 @@ select is(
     (select result from t_result where label = 'sam_title_after'),
     (select result from t_result where label = 'sam_title_before'),
     'T-PEER-ISO-1: Nora''s 50 same-titled outcomes leave Sam''s own suggestion byte-identical'
+);
+
+-- Re-verify pins (F7/F9): trailing-space titles must match, and tied-order pools must be
+-- deterministic -- both fixes could otherwise be silently reverted with the suite green.
+reset role;
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-000000023a01","role":"authenticated"}';
+select is(
+    (select (public.rpc_next_time_suggestion(null, '  session one  '))->>'sample_size'),
+    (select (public.rpc_next_time_suggestion(null, 'Session One'))->>'sample_size'),
+    'F7: title matching btrims both sides (padded key = clean key)'
+);
+select is(
+    (select public.rpc_next_time_suggestion(null, 'Session One')),
+    (select public.rpc_next_time_suggestion(null, 'Session One')),
+    'F9: repeated suggestion calls over a tied pool are byte-identical (total order)'
 );
 
 select * from finish();

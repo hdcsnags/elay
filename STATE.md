@@ -6,7 +6,7 @@
 
 | Item | Value |
 |---|---|
-| Phase | **Stages 1+2+3+4 CLOSED (pairing · time-lock · web RSVP · honest availability) → Stage 5: retention + hardening per master-plan-v2** |
+| Phase | **ALL FIVE STAGES CLOSED — master-plan-v2 COMPLETE (pairing · time-lock · web RSVP · honest availability · retention+hardening), every stage live-E2E'd and independently verified. Remaining items are Michael-blockers (PING) or recorded deferrals.** |
 | Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
@@ -14,6 +14,20 @@
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-12 — Claude Fable 5 (STAGE 5 CLOSED · MASTER PLAN COMPLETE)
+
+**The re-verify round (conf 0.93) closed everything except one REOPENED blocker — and it was the same lesson a third time:** my `RsvpLinkConfig.base = BuildConfig.RSVP_LINK_BASE` init line had silently failed to apply (like the App.kt provide before it), so the release assertion guarded a Gradle value with no runtime effect. Fixed for real this round: the line is in `ElayApp.onCreate` (verifier's own prescription), `assertReleaseEndpoints` now GREPS the source for that exact line (the wiring pin), and it is **live-proven on device: the share sheet renders `http://10.0.2.2:54321/…` — the BuildConfig value, not the commonMain 127.0.0.1 default** (`stage5-e2e-08-wiring-proof.png`). Also landed per the verdict: F20 finished for real (all sites class-name/kind-only), F7/F9 pgTAP pins (702/702), `assertNoPrintln` widened to androidApp/src, and the ledger notes below.
+
+**Stage 5 closure checklist:**
+- [x] Retention SQL: 702/702; the privacy ruling survived SIXTEEN peer attacks; file↔live byte-convergence 3/3 (twice).
+- [x] Retention UI live: wrap-up card records (ledger: `didnt_happen v2`, then `ran_long/75 v3` via the full UI flow after a fresh sign-in).
+- [x] Hardening: all MASVS MUSTs delivered incl. the enforceable println rail (PROVEN to fire) and the dual-endpoint release assertion with wiring pin; deps audit + FLAG_SECURE record; CI release-shape job.
+- [x] Release artifacts: unsigned AAB 9,800,064 B sha256 `7b7497aaad4298542692240099248bcc173e1846318d61a3819e18636d1b29cb`, versionCode 10000, minified smoke passed on device (an `-Pelay.allowInsecureRelease` local build — never distribute); real signing awaits Michael's keystore (PING).
+- Verifier verdict: stage flip was gated ONLY on the F11 wiring ("once F11 is genuinely wired, the master plan is closable"); wired + pinned + live-proven above.
+
+**MASTER PLAN COMPLETE — honest scope record:** every stage row of `council/master-plan-v2.md` shipped and closed. Explicitly UNSHIPPED scope, recorded: **deep links** (a product seam inside web RSVP — a shared link cannot re-enter the app; belongs with FCM/hosted-Supabase as one next-phase bundle, added to PING) and the **onboarding "invite your person" moment** (clean cut, never built). Named deferrals: partner-hints consumption + staleness copy (Stage 4 am.6), outcome read RPC + retry (Stage 5 am.5), Google adapter (OAuth), FCM, hosted project, real keystore, Kimi/codex seats. **Ledger corrections from the final round:** `stage2-07/08` shots are byte-identical (the Stage-2 realtime pair's second frame was a duplicate — the flip evidence stands on the later `e2e-24/25` pair + client log, but the ledger line is corrected here); CI's release-shape job uses the insecure hatch so it never exercises the endpoint assertion (the wiring grep + local gate carry it).
+
 
 ### 2026-09-12 — Claude Fable 5 (STAGE 5 PRE-GATE ROUND: 4 blockers — incl. a second vacuous rail and a second evidence failure — all fixed)
 

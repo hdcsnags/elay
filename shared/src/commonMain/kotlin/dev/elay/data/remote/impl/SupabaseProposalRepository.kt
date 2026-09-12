@@ -415,12 +415,14 @@ class SupabaseProposalRepository internal constructor(
     private suspend fun refetch() {
         // Mapping runs inside the catch — see [mutate]'s F12 note.
         runCatchingSuspend { transport.fetchActive().map { it.toDomain() } }
-            .onFailure { error -> ElayLog.w("Proposal") { "ELAY proposal refetch failure (active): $error" } }
-            .getOrNull()
+            .onFailure { error ->
+                ElayLog.w("Proposal") { "ELAY proposal refetch failure (active): ${error::class.simpleName}" }
+            }.getOrNull()
             ?.let { mutableActive.value = it }
         runCatchingSuspend { transport.fetchHistory().map { it.toDomain() } }
-            .onFailure { error -> ElayLog.w("Proposal") { "ELAY proposal refetch failure (history): $error" } }
-            .getOrNull()
+            .onFailure { error ->
+                ElayLog.w("Proposal") { "ELAY proposal refetch failure (history): ${error::class.simpleName}" }
+            }.getOrNull()
             ?.let { mutableHistory.value = it }
     }
 }

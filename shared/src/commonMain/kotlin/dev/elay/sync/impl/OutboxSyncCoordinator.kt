@@ -115,7 +115,9 @@ class OutboxSyncCoordinator(
     ): Boolean {
         // Diagnosability (concierge 2026-09-12): failures must reach the platform log (debug
         // builds only — release-stripped via ElayLog, stage5 §A MASVS checklist).
-        val failNote = "${failure.reason} retryable=${failure.retryable}"
+        // Class/kind-only (F20): failure.reason can embed a server message; keep the note to
+        // its retryability + a stable kind label.
+        val failNote = "sync_failed retryable=${failure.retryable}"
         ElayLog.w("Sync") { "ELAY sync failure: op=${entry.operationId} ${entry.type} -> $failNote" }
         if (failure.reason == AUTH_REQUIRED_REASON) {
             writeDao.markOutbox(entry.operationId, "PENDING")

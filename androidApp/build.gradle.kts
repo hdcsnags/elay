@@ -129,7 +129,14 @@ val assertReleaseEndpoints by tasks.registering {
     val url = supabaseUrl
     val rsvpBase = rsvpLinkBase
     val allowInsecure = providers.gradleProperty("elay.allowInsecureRelease").orNull == "true"
+    val elayAppSource = file("src/main/kotlin/dev/elay/ElayApp.kt").readText()
     doFirst {
+        // F11 wiring pin (re-verify lesson: the gate asserted a Gradle-side value with no
+        // runtime effect while the init line was missing — assert the WIRING too).
+        require(elayAppSource.contains("RsvpLinkConfig.base = BuildConfig.RSVP_LINK_BASE")) {
+            "ElayApp.onCreate must set RsvpLinkConfig.base from BuildConfig.RSVP_LINK_BASE " +
+                "(Stage 5 F11) -- without it the app ships the commonMain localhost default."
+        }
         val loopback = listOf("127.0.0.1", "localhost", "10.0.2.2")
         fun assertShippable(
             name: String,

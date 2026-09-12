@@ -37,17 +37,18 @@ subprojects {
 // the rail that actually fires: any `println(` in shared/src outside ElayLog's own actuals
 // fails the build. Wired into `check`.
 val assertNoPrintln by tasks.registering {
-    val srcRoot = file("shared/src")
+    val srcRoots = listOf(file("shared/src"), file("androidApp/src"))
     val allowed = setOf("ElayLog.kt", "ElayLog.android.kt", "ElayLog.ios.kt")
-    inputs.dir(srcRoot)
+    srcRoots.forEach { inputs.dir(it) }
     doLast {
         val offenders =
-            srcRoot.walkTopDown()
+            srcRoots.asSequence().flatMap { root -> root.walkTopDown().map { root to it } }
+                .map { it.second }
                 .filter { it.isFile && it.extension == "kt" && it.name !in allowed }
                 .flatMap { f ->
                     f.readLines().mapIndexedNotNull { i, l ->
                         if (l.contains("println(") && !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*")) {
-                            f.relativeTo(srcRoot).path + ":" + (i + 1) + "  " + l.trim()
+                            f.path + ":" + (i + 1) + "  " + l.trim()
                         } else {
                             null
                         }
