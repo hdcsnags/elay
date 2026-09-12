@@ -6,7 +6,7 @@
 
 | Item | Value |
 |---|---|
-| Phase | **1 CLOSED → Stage 1 of master-plan-v2 next: pairing + push (Gate 2 scope)** |
+| Phase | **Stages 1+2 CLOSED (pairing + time-lock negotiation, live E2E + verified) → Stage 3: web RSVP per master-plan-v2** |
 | Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
@@ -14,6 +14,17 @@
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-12 — Claude Fable 5 (STAGE 2 CLOSED)
+
+**Closure checklist, all with evidence:**
+- [x] Contract implemented (Sol §A + amendments): 5 migrations (130000–170000), pgTAP **423/423** (19 suites) — incl. this round's F7-3b direct `proposal_updated.v1` key-set pin.
+- [x] Live E2E on device: propose (real composer) → accept → accepted card + per-member shared_lock blocks in Plan; **realtime flip on an untouched foregrounded screen** (twice: cancel flip `e2e-24/25`, fresh-proposal appearance `e2e-28` through the restructured loops).
+- [x] Independent verification: Gemini (conf 0.96) + Opus (conf 0.9, re-ran pgTAP itself + built DB repros) both initially blocked closure; all 3 proven bugs fixed; **Opus re-verified each fix with its own repros and flipped to `stage2_ready_to_close: true`** with zero remaining blockers.
+- [x] Windows gate green (252 host tests) + CI ×3 green on `a5e27e5` (android, db, ios-verify).
+- [x] No secrets in tree; blockers list current (codex credits = Michael).
+
+**Tracked residuals (cleanup seat, non-blocking):** commonTest pin for mid-refetch retention (conflated-channel behavior is correct by construction, untested); `proposalHints` SharedFlow hop safe-by-invariant; `proposalForwardJob` narrow close-vs-reassign race; `rpc_delete_time_block` on a shared_lock raises raw 23503 (no UI path); C3 polish (Can't-button wrap, composer scaffold titles, bare UTC zone rows); history >20 needs pagination UI (frozen surface has none — Stage 3+).
 
 ### 2026-09-12 — Claude Fable 5 (STAGE 2 PRE-GATE VERIFICATION ROUND: 3 verifiers, 3 real bugs found and fixed)
 

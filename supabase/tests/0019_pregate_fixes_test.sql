@@ -4,7 +4,7 @@
 -- payload key sets; replay for accept/decline/counter/cancel).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(21);
 
 -- setup: pair A/B via the real RPCs.
 insert into auth.users (id, email) values
@@ -162,6 +162,18 @@ select is(
      where payload::text like '%Completable%' or payload::text like '%Tied %'),
     0,
     'F7-3: no broadcast payload ever carries a proposal title'
+);
+-- proposal_updated.v1 asserted DIRECTLY (re-verify residual: created/updated share
+-- proposal_broadcast_payload today, but a divergence at one call site must be caught).
+select is(
+    (select array_agg(k order by k) from jsonb_object_keys((
+        select payload - 'id' from realtime.messages
+        where event = 'pair.proposal_updated.v1'
+          and payload->>'proposal_id' = (select result->'proposal'->>'id' from t_result where label = 'p_create')
+        order by inserted_at desc limit 1
+    )) k),
+    array['current_revision','pair_id','proposal_id','status','version'],
+    'F7-3b: pair.proposal_updated.v1 payload carries EXACTLY the five sanitized keys'
 );
 
 -- ===================================================================================
