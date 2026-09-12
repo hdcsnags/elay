@@ -24,7 +24,8 @@ Seat economics (Michael, 2026-09-11, relaxing the 09-06 rule): Sol for routine r
 6. **Merge and build** on this machine. `git apply --3way`, then the gate commands (`/build-gate`). Red → fix locally if small, else return the patch with the error to the same seat (SendMessage / re-dispatch with the error appended).
 7. **Emulator pass.** Install the debug build, drive the new surface with adb, screenshot, look. Fix what you see. Coder seats (Sonnet, Fable 5) can do this themselves inside their clone when given the adb path and the AVD name — ask for screenshots in their report (`/build-gate`).
 8. **Gate.** The phase's exit gate (below) is a checklist in `STATE.md`; tick with evidence (command output, screenshot path). Then bump the version, build the AAB, record.
-9. **Log and commit.** `STATE.md` newest first; commit the repo; no push unless told.
+9. **Log and commit.** `STATE.md` newest first; commit the repo (push — the repo is public and CI is the verifier).
+10. **The loop does not stop at milestones** (Michael, 2026-09-11, after the build sat idle ~16h: "why did we actually stop here?"). A milestone gets a STATE entry and a commit, then work CONTINUES to the next open item. The concierge is event-driven — with no background task and no scheduled wake-up, nothing re-enters the session — so whenever work remains and no Michael-blocker exists, keep a continuation alive: either stay in-turn, or schedule a wake-up (`/loop` self-paced ScheduleWakeup, or CronCreate) before ending. Stopping is only correct when PING-MICHAEL.md holds a genuine blocker for ALL remaining work, or Michael says stop.
 
 ## 2. Gates (from the spec's exit gates, made checkable)
 
