@@ -4,6 +4,13 @@
 style:
   MagicNumber:
     active: false # UI dp/sp literals; revisit when the token layer lands (ADR-004)
+  ForbiddenMethodCall:
+    active: true
+    methods:
+      # Stage 5 hardening item 5: diagnostics go through ElayLog (release-stripped), never
+      # println — a raw println ships user data to logcat in release builds.
+      - reason: "Use dev.elay.util.ElayLog (release-stripped) instead of println."
+        value: "kotlin.io.println"
 
 naming:
   FunctionNaming:

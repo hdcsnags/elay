@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug-only: the local Supabase stack is plain HTTP (http://10.0.2.2:54321).
      Android blocks cleartext by default; allow it for debug builds only.
-     Release builds keep the platform default (no cleartext). -->
+     Release builds use main's TLS-only network_security_config. NOTE (Stage 5): the
+     cleartext allowance now actually lives in src/debug/res/xml/network_security_config.xml
+     (an NSC overrides this flag on API 24+); this flag is kept for pre-NSC tooling only. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:usesCleartextTraffic="true" />
 </manifest>

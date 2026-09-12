@@ -1,4 +1,6 @@
 [versions]
+# Single source for the app version (Stage 5 release lane): code = MAJOR*10000+MINOR*100+PATCH.
+elay-version = "1.0.0"
 compose-material-icons = "1.7.3"
 ksp = "2.3.12"
 room = "3.0.3"

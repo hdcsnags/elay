@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MASVS NETWORK-1 (Stage 5 item 2): release traffic is TLS-only. The debug variant's
+     manifest overlay (src/debug) keeps its cleartext allowance for the local stack; this
+     base config is what release ships. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
