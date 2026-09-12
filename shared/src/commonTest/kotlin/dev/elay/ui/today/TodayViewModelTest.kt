@@ -23,6 +23,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -124,6 +125,49 @@ class TodayViewModelTest {
                 viewModel.state.value.blocks
                     .single { it.id == block.id }
                     .status,
+            )
+        }
+
+    @Test
+    fun currentBlockSkipsAnAlreadyCompletedBlockInProgressWindow() =
+        runTest {
+            // Regression (Gate 1 deferred bug): "Up next" offered Complete on a block whose
+            // window covers `now` but whose status is already Completed/Cancelled.
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val completed =
+                block("b-completed", startsAt = now - 10.minutes, endsAt = now + 10.minutes)
+                    .copy(status = BlockStatus.Completed)
+            val cancelled =
+                block("b-cancelled", startsAt = now - 10.minutes, endsAt = now + 10.minutes)
+                    .copy(status = BlockStatus.Cancelled)
+            val repository = fakeRepository(blocks = listOf(completed, cancelled))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertNull(viewModel.state.value.currentBlock)
+        }
+
+    @Test
+    fun nextBlockSkipsAnAlreadyCompletedOrCancelledUpcomingBlock() =
+        runTest {
+            val date = LocalDate(2026, 6, 15)
+            val window = dayWindow(date, zone)
+            val now = window.start + 1.hours
+            val completedSoon =
+                block("b-completed", startsAt = now + 10.minutes, endsAt = now + 40.minutes)
+                    .copy(status = BlockStatus.Completed)
+            val scheduledLater =
+                block("b-scheduled", startsAt = now + 1.hours, endsAt = now + 90.minutes)
+            val repository = fakeRepository(blocks = listOf(completedSoon, scheduledLater))
+            val viewModel = TodayViewModel(repository, backgroundScope, clock = fixedClock(now), zone = zone)
+            runCurrent()
+
+            assertEquals(
+                TimeBlockId("b-scheduled"),
+                viewModel.state.value.nextBlock
+                    ?.id,
             )
         }
 

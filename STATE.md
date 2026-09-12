@@ -15,6 +15,14 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 1 PAIRING LIVE: invite → redeem → paired, on device)
+
+**Proven (shots `stage1-0*.png` + server rows):** A creates invite → real HMAC-derived code `024S1-AC50E` rendered with expiry; sign-out; B (new account) redeems the code → server: 2 active members, invite redeemed, version bumped; app renders **"You're paired"** with both members + zones. C2's Together/detail surfaces + Up-next fix merged (173 Kotlin tests); lead wired SupabasePairRepository into the user scope (closed on teardown). **pgTAP now 263/263 — and passing against a DIRTY live DB**, which is stricter than the reset-only runs.
+
+**Integration bug found only by live E2E (again): the profiles gap.** No code path ever created `public.profiles` rows — signup didn't, and every seat's tests seeded them manually — so `pair_to_jsonb`'s INNER JOIN returned `members: []` and the client (correctly) refused to call that Paired. Three-seat blind spot; fix: `20260912120000_profile_bootstrap.sql` (signup trigger + backfill + LEFT-JOIN fallback) + pgTAP 0014. Ripples fixed: manual profile seeds → upserts; one global-count assertion scoped to its test pair (dirty-DB hygiene); my own sed over-match corrupted a throws_ok and the live run caught it.
+
+**Honest deferrals:** realtime `member_joined` broadcast not yet OBSERVED live (single device; policy is pgTAP-proven; observation lands with Stage 2's dual-session testing). Leave-pair flow untested through UI (RPC pgTAP-proven). Next open item: **Stage 2 — time-lock core** (the signature feature): contract round → seats.
+
 ### 2026-09-12 — Claude Fable 5 (GATE 1 CLOSED — full evidence)
 
 **Checklist (spec §11 Phase 1, surfaces amended by master-plan-v2's pairs pivot):**

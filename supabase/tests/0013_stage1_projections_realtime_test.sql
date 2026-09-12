@@ -30,7 +30,8 @@ insert into auth.users (id, email) values
 insert into public.profiles (user_id, display_name, home_tz) values
     ('00000000-0000-0000-0000-00000000aaa1', 'User P', 'America/Toronto'),
     ('00000000-0000-0000-0000-00000000bbb1', 'User Q', 'America/Toronto'),
-    ('00000000-0000-0000-0000-00000000ccc1', 'User R', 'America/Toronto');
+    ('00000000-0000-0000-0000-00000000ccc1', 'User R', 'America/Toronto')
+on conflict (user_id) do update set display_name = excluded.display_name, home_tz = excluded.home_tz;
 
 create temporary table t_result (label text, result jsonb);
 grant all on t_result to authenticated;

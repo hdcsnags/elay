@@ -58,7 +58,8 @@ insert into public.profiles (user_id, display_name, home_tz) values
     ('00000000-0000-0000-0000-00000000000c', 'User C', 'America/Toronto'),
     ('00000000-0000-0000-0000-00000000000d', 'User D', 'America/Toronto'),
     ('00000000-0000-0000-0000-00000000000e', 'User E', 'America/Toronto'),
-    ('00000000-0000-0000-0000-00000000000f', 'User F', 'America/Toronto');
+    ('00000000-0000-0000-0000-00000000000f', 'User F', 'America/Toronto')
+on conflict (user_id) do update set display_name = excluded.display_name, home_tz = excluded.home_tz;
 
 create temporary table t_result (label text, result jsonb);
 grant all on t_result to authenticated, anon;
@@ -124,9 +125,11 @@ select is(
 );
 reset role;
 select is(
-    (select count(*)::int from public.pair_invites),
+    (select count(*)::int from public.pair_invites i
+     where i.pair_id = (select (result->'pair'->>'pair_id')::uuid
+                        from t_result where label = 'a_create_1')),
     1,
-    'T-REPLAY-CREATE: replay did not create a second invite row'
+    'T-REPLAY-CREATE: replay did not create a second invite row (scoped to the test pair - a live DB may hold others)'
 );
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}';

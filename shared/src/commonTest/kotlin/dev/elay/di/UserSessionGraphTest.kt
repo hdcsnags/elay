@@ -5,6 +5,7 @@ import dev.elay.domain.model.UserId
 import dev.elay.ui.auth.FakeAuthGateway
 import dev.elay.ui.fake.FakePlannerRepository
 import dev.elay.ui.fake.PlannerSeed
+import dev.elay.ui.together.fake.FakePairRepository
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -36,7 +37,7 @@ class UserSessionGraphTest {
             val auth = FakeAuthGateway(initial = SessionState.SignedOut)
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { uid ->
-                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator())) {}
+                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator(), FakePairRepository())) {}
                 }
             runCurrent()
 
@@ -52,7 +53,9 @@ class UserSessionGraphTest {
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { userId ->
                     builtFor += userId
-                    UserResources(UserGraph(UserId("test-user"), emptyRepository(), coordinator)) {}
+                    UserResources(
+                        UserGraph(UserId("test-user"), emptyRepository(), coordinator, FakePairRepository()),
+                    ) {}
                 }
             runCurrent()
 
@@ -71,7 +74,10 @@ class UserSessionGraphTest {
             var closed = false
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { uid ->
-                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator())) { closed = true }
+                    UserResources(UserGraph(uid, emptyRepository(), FakeSyncCoordinator(), FakePairRepository())) {
+                        closed =
+                            true
+                    }
                 }
             runCurrent()
             assertNotNull(graph.userScope.value)
@@ -90,7 +96,9 @@ class UserSessionGraphTest {
             val closedOrder = mutableListOf<String>()
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { userId ->
-                    UserResources(UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator())) {
+                    UserResources(
+                        UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator(), FakePairRepository()),
+                    ) {
                         closedOrder += userId.value
                     }
                 }
@@ -111,7 +119,9 @@ class UserSessionGraphTest {
             val graph =
                 UserSessionGraph(sessionFlow = auth.session, appScope = backgroundScope) { _ ->
                     buildCount++
-                    UserResources(UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator())) {}
+                    UserResources(
+                        UserGraph(UserId("test-user"), emptyRepository(), FakeSyncCoordinator(), FakePairRepository()),
+                    ) {}
                 }
             runCurrent()
             assertEquals(1, buildCount)

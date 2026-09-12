@@ -6,6 +6,7 @@ import dev.elay.data.remote.AuthGateway
 import dev.elay.data.remote.SessionState
 import dev.elay.data.remote.impl.SupabaseAuthGateway
 import dev.elay.data.remote.impl.SupabaseDataGateway
+import dev.elay.data.remote.impl.SupabasePairRepository
 import dev.elay.data.repository.LocalFirstPlannerRepository
 import dev.elay.sync.impl.OutboxSyncCoordinator
 import dev.elay.sync.impl.ServerHydrator
@@ -104,7 +105,11 @@ class AppGraph(
                     syncCoordinator = syncCoordinator,
                 )
             val repository = ReplayTriggeringPlannerRepository(baseRepository, syncCoordinator, appScope)
-            UserResources(UserGraph(userId, repository, syncCoordinator)) { database.close() }
+            val pairRepository = SupabasePairRepository(supabaseClient, appScope)
+            UserResources(UserGraph(userId, repository, syncCoordinator, pairRepository)) {
+                pairRepository.close()
+                database.close()
+            }
         }
 
     /** Per-account repository + sync coordinator, or `null` while no user is signed in. */

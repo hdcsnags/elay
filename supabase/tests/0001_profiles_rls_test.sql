@@ -16,7 +16,8 @@ values ('00000000-0000-0000-0000-000000000001', 'a@test.local'),
        ('00000000-0000-0000-0000-000000000002', 'b@test.local');
 insert into public.profiles (user_id, display_name, home_tz)
 values ('00000000-0000-0000-0000-000000000001', 'User A', 'America/Toronto'),
-       ('00000000-0000-0000-0000-000000000002', 'User B', 'America/Vancouver');
+       ('00000000-0000-0000-0000-000000000002', 'User B', 'America/Vancouver')
+on conflict (user_id) do update set display_name = excluded.display_name, home_tz = excluded.home_tz;
 
 -- act as user A (authenticated)
 set local role authenticated;

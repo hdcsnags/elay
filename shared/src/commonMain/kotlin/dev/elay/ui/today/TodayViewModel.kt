@@ -30,19 +30,37 @@ data class TodayUiState(
     val focusTasks: List<Task> = emptyList(),
     val inboxCount: Int = 0,
 ) {
-    /** The block in progress right now, if any. */
+    /** The block in progress right now, if any — excludes [BlockStatus.Completed]/
+     * [BlockStatus.Cancelled] blocks so a block already finished (or called off) never offers
+     * Complete again (Gate 1 deferred bug: "Up next" offering Complete on a done block). */
     val currentBlock: TimeBlock?
-        get() = now?.let { moment -> blocks.firstOrNull { moment >= it.startsAt && moment < it.endsAt } }
+        get() =
+            now?.let { moment ->
+                blocks
+                    .asSequence()
+                    .filter { it.status !in FINISHED_BLOCK_STATUSES }
+                    .firstOrNull { moment >= it.startsAt && moment < it.endsAt }
+            }
 
-    /** The soonest upcoming block, used when nothing is in progress. */
+    /** The soonest upcoming block, used when nothing is in progress — same completed/cancelled
+     * exclusion as [currentBlock]. */
     val nextBlock: TimeBlock?
-        get() = now?.let { moment -> blocks.filter { it.startsAt > moment }.minByOrNull { it.startsAt } }
+        get() =
+            now?.let { moment ->
+                blocks
+                    .asSequence()
+                    .filter { it.status !in FINISHED_BLOCK_STATUSES && it.startsAt > moment }
+                    .minByOrNull { it.startsAt }
+            }
 
     val isEmpty: Boolean get() = blocks.isEmpty() && focusTasks.isEmpty()
 }
 
 /** Max focus tasks shown on Today (spec §2 — "max 3 focus outcomes", priority overload guardrail). */
 const val MAX_FOCUS_TASKS = 3
+
+/** Blocks in either of these statuses are never a candidate for "happening now" / "up next". */
+private val FINISHED_BLOCK_STATUSES = setOf(BlockStatus.Completed, BlockStatus.Cancelled)
 
 /**
  * Plain, testable ViewModel (no android.lifecycle dependency): owns Today's

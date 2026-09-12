@@ -17,27 +17,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import dev.elay.data.remote.SessionState
 import dev.elay.di.AppGraph
 import dev.elay.di.LocalAppScope
 import dev.elay.di.LocalCurrentUserId
 import dev.elay.di.LocalPlannerRepository
+import dev.elay.domain.model.GoalId
+import dev.elay.domain.model.TaskId
+import dev.elay.ui.GoalDetailRoute
 import dev.elay.ui.InboxRoute
 import dev.elay.ui.PlanRoute
 import dev.elay.ui.SettingsRoute
+import dev.elay.ui.TaskDetailRoute
 import dev.elay.ui.TodayRoute
+import dev.elay.ui.TogetherRoute
 import dev.elay.ui.auth.SignInScreen
 import dev.elay.ui.auth.SignInViewModel
+import dev.elay.ui.goal.GoalDetailScreen
 import dev.elay.ui.inbox.InboxScreen
 import dev.elay.ui.plan.PlanScreen
 import dev.elay.ui.settings.SettingsScreen
 import dev.elay.ui.settings.SettingsViewModel
+import dev.elay.ui.task.TaskDetailScreen
 import dev.elay.ui.theme.ElayTheme
 import dev.elay.ui.today.TodayScreen
+import dev.elay.ui.together.TogetherScreen
 import dev.elay.ui.Surface as ElaySurface
 
 /**
@@ -69,6 +80,7 @@ fun App(appGraph: AppGraph) {
                     } else {
                         CompositionLocalProvider(
                             LocalPlannerRepository provides graph.repository,
+                            dev.elay.ui.together.LocalPairRepository provides graph.pairRepository,
                             LocalCurrentUserId provides graph.userId,
                         ) {
                             AppShell(appGraph = appGraph)
@@ -132,6 +144,7 @@ private fun AppShell(appGraph: AppGraph) {
             composable(PlanRoute::class) {
                 PlanScreen()
             }
+            togetherAndDetailRoutes(navController)
             composable(SettingsRoute::class) {
                 val appScope = LocalAppScope.current
                 val settingsViewModel = remember { SettingsViewModel(appGraph.authGateway, appScope) }
@@ -141,12 +154,47 @@ private fun AppShell(appGraph: AppGraph) {
                     userId = LocalCurrentUserId.current.value,
                 )
             }
-            ElaySurface.entries
-                .filter { it != ElaySurface.Today && it != ElaySurface.Inbox && it != ElaySurface.Plan }
-                .forEach { surface ->
-                    composable(surface.route::class) { PlaceholderScreen(surface.label) }
-                }
+            placeholderRoutes()
         }
+    }
+}
+
+/** The still-registered-but-out-of-the-bar surfaces (Goals/Review — contracts/phase0-foundation.md's
+ * route contract survives the pivot even though the nav bar doesn't render them). Split out of
+ * [AppShell]'s `NavHost` body to keep that function's length under detekt's `LongMethod` threshold. */
+private fun NavGraphBuilder.placeholderRoutes() {
+    ElaySurface.entries
+        .filter {
+            it != ElaySurface.Today &&
+                it != ElaySurface.Inbox &&
+                it != ElaySurface.Plan &&
+                it != ElaySurface.Together
+        }.forEach { surface ->
+            composable(surface.route::class) { PlaceholderScreen(surface.label) }
+        }
+}
+
+/** Together (contracts/stage1-pairing.md) plus the Goal/Task detail routes it links to
+ * (Gate-1 deferred item) — split out of [AppShell]'s `NavHost` body to keep that function's
+ * length under detekt's `LongMethod` threshold. */
+private fun NavGraphBuilder.togetherAndDetailRoutes(navController: NavHostController) {
+    composable(TogetherRoute::class) {
+        TogetherScreen()
+    }
+    composable(GoalDetailRoute::class) { backStackEntry ->
+        val route = backStackEntry.toRoute<GoalDetailRoute>()
+        GoalDetailScreen(
+            goalId = GoalId(route.id),
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable(TaskDetailRoute::class) { backStackEntry ->
+        val route = backStackEntry.toRoute<TaskDetailRoute>()
+        TaskDetailScreen(
+            taskId = TaskId(route.id),
+            onBack = { navController.popBackStack() },
+            onOpenGoal = { goalId -> navController.navigate(GoalDetailRoute(goalId.value)) },
+        )
     }
 }
 
