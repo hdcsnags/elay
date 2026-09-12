@@ -2,6 +2,7 @@ package dev.elay.data.remote.impl
 
 import dev.elay.data.remote.dto.PairRpcEnvelopeDto
 import dev.elay.data.remote.dto.PairSnapshotDto
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 
@@ -31,6 +32,12 @@ internal class FakePairTransport : PairTransport {
     private val mutableResyncSignals = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     override val resyncSignals: Flow<Unit> = mutableResyncSignals
 
+    /** Set by [armFetchPairGate] — when non-null, every [fetchPair] call suspends on it before
+     * returning (a completed gate resolves immediately, so this stays armed rather than being
+     * cleared after first use). Scripts the same mid-fetch invalidation-retention pin (commonTest
+     * residual F10) as [FakeProposalTransport.armFetchActiveGate]. */
+    private var fetchPairGate: CompletableDeferred<Unit>? = null
+
     fun enqueueSnapshot(snapshot: PairSnapshotDto?) {
         snapshots.addLast(snapshot)
     }
@@ -40,9 +47,19 @@ internal class FakePairTransport : PairTransport {
         mutableResyncSignals.tryEmit(Unit)
     }
 
+    /** Arms a gate that suspends every subsequent [fetchPair] call until the test completes the
+     * returned [CompletableDeferred] — the caller's window to script an invalidation hint
+     * arriving mid-fetch. */
+    fun armFetchPairGate(): CompletableDeferred<Unit> {
+        val gate = CompletableDeferred<Unit>()
+        fetchPairGate = gate
+        return gate
+    }
+
     override suspend fun fetchPair(): PairSnapshotDto? {
         fetchError?.let { throw it }
         fetchCount++
+        fetchPairGate?.await()
         val next = if (snapshots.isNotEmpty()) snapshots.removeFirst() else lastReturned
         lastReturned = next
         return next

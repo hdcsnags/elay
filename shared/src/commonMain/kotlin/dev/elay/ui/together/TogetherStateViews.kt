@@ -210,7 +210,12 @@ private fun MemberRow(member: PairMember) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(text = member.displayName, style = MaterialTheme.typography.bodyLarge)
-        Text(text = member.homeTz, style = MaterialTheme.typography.bodyMedium)
+        // City-style label + current UTC offset, not the bare IANA id (C3 polish — a raw "UTC"
+        // or "America/Toronto" reads as a debug string, not a friendly zone).
+        Text(
+            text = formatZoneLabel(member.homeTz, now = Clock.System.now()),
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

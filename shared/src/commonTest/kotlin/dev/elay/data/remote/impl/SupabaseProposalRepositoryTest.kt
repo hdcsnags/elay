@@ -204,6 +204,54 @@ class SupabaseProposalRepositoryTest {
         }
 
     @Test
+    fun invalidationHintDuringASuspendedFetchStillTriggersAFollowUpRefetch() =
+        runTest {
+            // Pins the mid-refetch retention fix (pre-gate finding F10, SupabaseProposalRepository's
+            // `kick`/`refetchLoop` kdoc): a bare `MutableSharedFlow(replay = 0)` kick DISCARDS an
+            // emission while nothing is yet suspended on `kick.receive()` (refetch() hasn't
+            // returned) — the conflated channel + forwarding collector armed before the first
+            // fetch is what retains it instead.
+            val transport = FakeProposalTransport()
+            transport.enqueueActive(emptyList())
+            transport.enqueueHistory(emptyList())
+            val gate = transport.armFetchActiveGate()
+            val hints = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+            val repository = SupabaseProposalRepository(backgroundScope, transport, hints)
+            val activeValues = collectValues(repository.observeActive())
+            runCurrent()
+
+            // The first fetchActive() call has started (count bumped) and is suspended on the
+            // gate — this is the mid-refetch window F10 is about. fetchHistory() hasn't run yet
+            // either: refetch() awaits fetchActive() before calling it.
+            assertEquals(1, transport.fetchActiveCount)
+            assertEquals(0, transport.fetchHistoryCount)
+
+            // Queue what the follow-up refetch this hint must trigger should see, then emit the
+            // hint WHILE the first fetch is still suspended.
+            transport.enqueueActive(listOf(proposalDto()))
+            transport.enqueueHistory(emptyList())
+            hints.tryEmit(Unit)
+            runCurrent()
+
+            // Still mid-first-fetch: the hint landed (forwarded into the conflated `kick`) but
+            // nothing has re-run yet.
+            assertEquals(1, transport.fetchActiveCount)
+
+            // Release the gate: the first fetch completes, refetch() finishes its history call,
+            // and the loop's `kick.receive()` must already hold the retained pulse — not block
+            // forever waiting on a signal that already happened — so it loops straight into a
+            // second refetch (NOT advanceUntilIdle — the loop never goes idle on its own, same
+            // reason as the class kdoc and SupabasePairRepositoryTest).
+            gate.complete(Unit)
+            runCurrent()
+
+            assertEquals(2, transport.fetchActiveCount)
+            assertEquals(2, transport.fetchHistoryCount)
+            assertEquals(1, activeValues.last().size)
+            assertEquals(ProposalId(PROPOSAL_ID), activeValues.last().single().id)
+        }
+
+    @Test
     fun closeCancelsTheRefetchLoop() =
         runTest {
             val transport = FakeProposalTransport()

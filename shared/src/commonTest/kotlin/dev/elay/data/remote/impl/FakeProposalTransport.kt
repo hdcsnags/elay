@@ -5,6 +5,7 @@ import dev.elay.data.remote.dto.ProposalSummaryDto
 import dev.elay.domain.model.CreateProposal
 import dev.elay.domain.model.ProposalId
 import dev.elay.domain.model.RespondProposal
+import kotlinx.coroutines.CompletableDeferred
 
 /**
  * Scripted, in-memory [ProposalTransport] driving [SupabaseProposalRepository]'s refetch loop with
@@ -27,6 +28,12 @@ internal class FakeProposalTransport : ProposalTransport {
     var cancelResult: ProposalRpcEnvelopeDto? = null
     var completeResult: ProposalRpcEnvelopeDto? = null
 
+    /** Set by [armFetchActiveGate] — when non-null, every [fetchActive] call suspends on it
+     * before returning (a completed gate just resolves immediately, so this stays armed rather
+     * than being cleared after first use). Scripts the mid-refetch invalidation-retention pin
+     * (commonTest residual F10): a hint that lands while `fetchActive()` is still suspended. */
+    private var fetchActiveGate: CompletableDeferred<Unit>? = null
+
     /** `rpc_list_proposals(scope='active')` responses, consumed one per call to [fetchActive];
      * once the queue is drained the last value returned keeps repeating. */
     fun enqueueActive(proposals: List<ProposalSummaryDto>) {
@@ -38,8 +45,18 @@ internal class FakeProposalTransport : ProposalTransport {
         historyQueue.addLast(proposals)
     }
 
+    /** Arms a gate that suspends every subsequent [fetchActive] call until the test completes
+     * the returned [CompletableDeferred] — the caller's window to script an invalidation hint
+     * arriving mid-fetch. */
+    fun armFetchActiveGate(): CompletableDeferred<Unit> {
+        val gate = CompletableDeferred<Unit>()
+        fetchActiveGate = gate
+        return gate
+    }
+
     override suspend fun fetchActive(): List<ProposalSummaryDto> {
         fetchActiveCount++
+        fetchActiveGate?.await()
         val next = if (activeQueue.isNotEmpty()) activeQueue.removeFirst() else lastActive
         lastActive = next
         return next

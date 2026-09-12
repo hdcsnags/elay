@@ -62,4 +62,32 @@ class TogetherFormattingTest {
     fun nonRetryableNetworkFailureDoesNotPromiseASecondAttemptWillHelp() {
         assertEquals("Couldn't reach the server right now.", networkFailureMessage(retryable = false))
     }
+
+    // `start` is 2001-09-09T01:46:40Z — squarely inside northern-hemisphere DST, so Toronto/New
+    // York read UTC-4 here (matches the "Toronto · UTC-4" example in the work item).
+
+    @Test
+    fun rendersASimpleIanaIdAsItsCityPlusCurrentOffset() {
+        assertEquals("Toronto · UTC-4", formatZoneLabel("America/Toronto", now = start))
+    }
+
+    @Test
+    fun rendersAnUnderscoredCitySegmentWithASpace() {
+        assertEquals("New York · UTC-4", formatZoneLabel("America/New_York", now = start))
+    }
+
+    @Test
+    fun rendersAHalfHourOffsetZoneWithMinutes() {
+        assertEquals("Kolkata · UTC+5:30", formatZoneLabel("Asia/Kolkata", now = start))
+    }
+
+    @Test
+    fun collapsesEtcUtcToBareUtcRatherThanDoublingItUp() {
+        assertEquals("UTC", formatZoneLabel("Etc/UTC", now = start))
+    }
+
+    @Test
+    fun fallsBackToTheBareIdWhenItIsNotARecognizedIanaZone() {
+        assertEquals("not-a-zone", formatZoneLabel("not-a-zone", now = start))
+    }
 }

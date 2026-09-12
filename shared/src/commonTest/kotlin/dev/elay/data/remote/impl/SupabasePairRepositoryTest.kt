@@ -147,6 +147,46 @@ class SupabasePairRepositoryTest {
         }
 
     @Test
+    fun resyncPulseDuringASuspendedFetchStillTriggersAFollowUpRefetch() =
+        runTest {
+            // Same mid-fetch retention pin as SupabaseProposalRepositoryTest's F10 test — this
+            // repository's `resyncLoop` uses the identical conflated-`kick`-plus-forwarding-
+            // collector shape (class kdoc's F10 note), so the same failure mode (a bare
+            // `MutableSharedFlow(replay = 0)` kick discarding a pulse that lands before anything
+            // is suspended on `kick.receive()`) applies here too.
+            val transport = FakePairTransport()
+            val topic = "pair:pair-1:gen-1"
+            transport.enqueueSnapshot(snapshot(topic = topic, members = listOf(member("u1"), member("u2"))))
+            val gate = transport.armFetchPairGate()
+            val repository = SupabasePairRepository(backgroundScope, transport)
+            runCurrent()
+
+            // The first fetchPair() call has started (count bumped) and is suspended on the gate.
+            assertEquals(1, transport.fetchCount)
+            assertTrue(transport.subscribedTopics.isEmpty())
+
+            // Queue what the follow-up refetch this pulse must trigger should see, then emit the
+            // resync signal WHILE the first fetch is still suspended.
+            transport.enqueueSnapshot(snapshot(topic = topic, members = listOf(member("u1"), member("u2"))))
+            transport.emitResync()
+            runCurrent()
+
+            // Still mid-first-fetch: the pulse landed (forwarded into the conflated `kick`) but
+            // nothing has re-run yet.
+            assertEquals(1, transport.fetchCount)
+
+            // Release the gate: the first fetch completes, the loop subscribes and immediately
+            // finds `kick.receive()` already holding the retained pulse (NOT advanceUntilIdle —
+            // the loop never goes idle on its own), so it tears down and loops into a second
+            // fetch rather than blocking forever on a signal that already happened.
+            gate.complete(Unit)
+            runCurrent()
+
+            assertEquals(2, transport.fetchCount)
+            assertTrue(repository.observePair().value is PairState.Paired)
+        }
+
+    @Test
     fun leaveAppliedBecomesUnpairedAndClosesTheChannel() =
         runTest {
             val transport = FakePairTransport()

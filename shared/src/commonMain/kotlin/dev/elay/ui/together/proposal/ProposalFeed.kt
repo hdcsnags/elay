@@ -4,6 +4,7 @@ package dev.elay.ui.together.proposal
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -164,7 +165,13 @@ private fun IncomingCardBody(
         PreviousRevisionDisclosure(card.previousCandidates, card.revisionNo - 1)
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // FlowRow, not Row (§C3 fix — a phone-width Row squeezed "Can't" to one letter per line):
+    // three whole buttons wrap onto a second line together at narrow widths instead of any one
+    // button being crushed to fit.
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Button(
             onClick = { viewModel.acceptCandidate(card.id) },
             modifier = Modifier.semantics { contentDescription = "Accept option ${selected + 1}" },
