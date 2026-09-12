@@ -3,7 +3,8 @@
 *Concierge keeps this current (newest first). Michael clears items when he's around; nothing here stalls work that has a workaround.*
 
 ## Blocking now
-*(nothing — build proceeding)*
+*(nothing hard-blocking — build proceeding with a lane reassignment)*
+- **Codex workspace out of credits** — both codex seats (Sol AND Astra) fail instantly with `ERROR: Your workspace is out of credits. Add credits to continue.` (michael.thomas@dsbn.org workspace, verified 2026-09-12 ~06:15 during Astra's Stage 2 pre-gate dispatch — two runs: one 268s partial, one 4s instant-fail). Spend is yours per protocol. **Workaround in effect:** Astra's pre-gate verification lane reassigned to Gemini (still cross-vendor, independent of lead + coder models); Sol contract lanes fall to Gemini/lead until credits return. *(Added 2026-09-12.)*
 
 ## Coming up (not yet blocking, workarounds in place)
 - **Firebase project for real push notifications (FCM)** — Stage 1+ delivers events via Supabase Realtime (works on the local stack, no account needed), but device push when the app is closed needs FCM = a Firebase project only you can create. Time-lock nudges (Stage 2/3) will be in-app/realtime-only until then. *(Added 2026-09-12.)*
