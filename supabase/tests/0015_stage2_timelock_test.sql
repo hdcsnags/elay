@@ -260,8 +260,8 @@ insert into t_result (label, result) select 'conflict_hints', public.rpc_proposa
 select is(jsonb_array_length((select result from t_result where label = 'conflict_hints')), 2, 'T-CONFLICT-HINTS-1: one hint object per candidate');
 select is(
     (select array_agg(k order by k) from jsonb_object_keys((select result->0 from t_result where label = 'conflict_hints')) k),
-    array['busy_windows','candidate_idx','has_conflict']::text[],
-    'T-CONFLICT-HINTS-2: exact key set {candidate_idx, has_conflict, busy_windows}'
+    array['busy_windows','candidate_idx','certainty','has_conflict']::text[],
+    'T-CONFLICT-HINTS-2: exact key set {candidate_idx, has_conflict, busy_windows, certainty} (certainty added by 20260912200000, Stage 4)'
 );
 select is((select result->0->>'has_conflict' from t_result where label = 'conflict_hints'), 'true', 'T-CONFLICT-HINTS-3: candidate 0 (overlaps B''s busy block) is flagged has_conflict');
 select is((select result->1->>'has_conflict' from t_result where label = 'conflict_hints'), 'false', 'T-CONFLICT-HINTS-4: candidate 1 (no overlap) is not flagged');

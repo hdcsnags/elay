@@ -1,0 +1,18 @@
+[
+  {
+    "source_tag": "manual",
+    "status": "active",
+    "last_synced_at": "2026-09-12T18:00:00Z",
+    "freshness_ttl_minutes": 43200,
+    "window_start_utc": "2026-09-11T18:00:00Z",
+    "window_end_utc": "2026-10-17T18:00:00Z"
+  },
+  {
+    "source_tag": "google",
+    "status": "active",
+    "last_synced_at": "2026-09-12T12:00:00Z",
+    "freshness_ttl_minutes": 360,
+    "window_start_utc": "2026-09-11T00:00:00Z",
+    "window_end_utc": "2026-10-17T00:00:00Z"
+  }
+]

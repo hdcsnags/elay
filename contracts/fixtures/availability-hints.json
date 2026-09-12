@@ -1,0 +1,22 @@
+[
+  {
+    "candidate_idx": 0,
+    "has_conflict": true,
+    "busy_windows": [
+      { "starts_at_utc": "2026-09-20T19:00:00Z", "ends_at_utc": "2026-09-20T20:30:00Z" }
+    ],
+    "certainty": "busy"
+  },
+  {
+    "candidate_idx": 1,
+    "has_conflict": false,
+    "busy_windows": [],
+    "certainty": "unknown"
+  },
+  {
+    "candidate_idx": 2,
+    "has_conflict": false,
+    "busy_windows": [],
+    "certainty": "free_per_calendar"
+  }
+]

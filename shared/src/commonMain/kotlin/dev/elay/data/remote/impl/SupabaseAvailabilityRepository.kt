@@ -40,7 +40,7 @@ internal interface AvailabilityTransport {
      * [AvailabilitySourceDto]'s kdoc; flagged for the lead's merge diff against A6's real RPC. */
     suspend fun fetchMySources(): List<AvailabilitySourceDto>
 
-    /** `rpc_upsert_external_busy(p_operation_id, p_busy_id, p_starts_at_utc, p_ends_at_utc,
+    /** `rpc_upsert_external_busy(p_operation_id, p_id, p_starts_at_utc, p_ends_at_utc,
      * p_origin_tz)` — no `p_source_tag` parameter: the server hard-codes `'manual'` (contract:
      * "client-supplied tags forbidden"). */
     suspend fun upsertManualBusy(
@@ -51,7 +51,7 @@ internal interface AvailabilityTransport {
         originZoneId: String,
     ): ExternalBusyRpcEnvelopeDto
 
-    /** `rpc_delete_external_busy(p_operation_id, p_busy_id)`. */
+    /** `rpc_delete_external_busy(p_operation_id, p_id)`. */
     suspend fun deleteManualBusy(
         operationId: String,
         busyId: String,
@@ -96,7 +96,7 @@ private class SupabaseAvailabilityTransport(
                 "rpc_upsert_external_busy",
                 buildJsonObject {
                     put("p_operation_id", operationId)
-                    put("p_busy_id", busyId)
+                    put("p_id", busyId)
                     put("p_starts_at_utc", startsAtUtc)
                     put("p_ends_at_utc", endsAtUtc)
                     put("p_origin_tz", originZoneId)
@@ -112,7 +112,7 @@ private class SupabaseAvailabilityTransport(
                 "rpc_delete_external_busy",
                 buildJsonObject {
                     put("p_operation_id", operationId)
-                    put("p_busy_id", busyId)
+                    put("p_id", busyId)
                 },
             ).decodeAs()
 
