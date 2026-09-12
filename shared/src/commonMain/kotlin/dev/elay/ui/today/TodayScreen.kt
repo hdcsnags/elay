@@ -24,9 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.elay.di.LocalPlannerRepository
 import dev.elay.domain.model.Task
 import dev.elay.domain.model.TimeBlock
-import dev.elay.ui.fake.sharedFakePlannerRepository
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -266,9 +266,10 @@ private fun TimeBlock.timeRangeLabel(zone: TimeZone): String {
     return "$start – $end"
 }
 
-/** Default ViewModel wiring the shared fake repository (App wiring will inject a real one later). */
+/** Wires the real per-account repository from [dev.elay.di.AppGraph] (falls back to the shared fake outside it). */
 @Composable
 private fun rememberTodayViewModel(): TodayViewModel {
     val scope = rememberCoroutineScope()
-    return remember { TodayViewModel(sharedFakePlannerRepository, scope) }
+    val repository = LocalPlannerRepository.current
+    return remember(repository) { TodayViewModel(repository, scope) }
 }

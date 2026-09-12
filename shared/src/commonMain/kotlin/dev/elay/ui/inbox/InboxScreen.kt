@@ -23,8 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.elay.di.LocalPlannerRepository
 import dev.elay.domain.model.Capture
-import dev.elay.ui.fake.sharedFakePlannerRepository
 
 /**
  * Inbox surface (brief §3): quick-add capture, newest first, clarify-to-task
@@ -144,8 +144,11 @@ private fun CaptureRow(
     }
 }
 
+/** Wires the real per-account repository from [dev.elay.di.AppGraph] (falls back to the shared fake outside it). */
 @Composable
 private fun rememberInboxViewModel(): InboxViewModel {
     val scope = rememberCoroutineScope()
-    return remember { InboxViewModel(sharedFakePlannerRepository, scope) }
+    val repository = LocalPlannerRepository.current
+    val userId = dev.elay.di.LocalCurrentUserId.current
+    return remember(repository, userId) { InboxViewModel(repository, scope, ownerId = userId) }
 }

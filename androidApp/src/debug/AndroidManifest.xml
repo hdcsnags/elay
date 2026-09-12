@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: the local Supabase stack is plain HTTP (http://10.0.2.2:54321).
+     Android blocks cleartext by default; allow it for debug builds only.
+     Release builds keep the platform default (no cleartext). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>

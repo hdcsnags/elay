@@ -112,6 +112,9 @@ class OutboxSyncCoordinator(
         entry: OutboxEntity,
         failure: MutationResult.Failed,
     ): Boolean {
+        // Diagnosability (concierge 2026-09-12): failures must reach the platform log.
+        val failNote = "${failure.reason} retryable=${failure.retryable}"
+        println("ELAY sync failure: op=${entry.operationId} ${entry.type} -> $failNote")
         if (failure.reason == AUTH_REQUIRED_REASON) {
             writeDao.markOutbox(entry.operationId, "PENDING")
             authGateway.refreshSession()

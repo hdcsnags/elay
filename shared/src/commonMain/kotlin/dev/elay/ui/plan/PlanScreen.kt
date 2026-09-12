@@ -31,8 +31,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.elay.di.LocalPlannerRepository
 import dev.elay.domain.model.TimeBlock
-import dev.elay.ui.fake.sharedFakePlannerRepository
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -236,8 +236,10 @@ private fun BlockDetailDialog(
     )
 }
 
+/** Wires the real per-account repository from [dev.elay.di.AppGraph] (falls back to the shared fake outside it). */
 @Composable
 private fun rememberPlanViewModel(): PlanViewModel {
     val scope = rememberCoroutineScope()
-    return remember { PlanViewModel(sharedFakePlannerRepository, scope) }
+    val repository = LocalPlannerRepository.current
+    return remember(repository) { PlanViewModel(repository, scope) }
 }

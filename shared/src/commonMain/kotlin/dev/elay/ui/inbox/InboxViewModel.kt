@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
-import kotlin.random.Random
 import kotlin.time.Clock
 
 /** Inbox surface state (brief §3): "dump now, sort later" — newest capture first. */
@@ -113,6 +112,8 @@ class InboxViewModel(
     }
 }
 
-private fun defaultNewId(): String = "id-${Clock.System.now().toEpochMilliseconds()}-${Random.nextInt(RANDOM_ID_BOUND)}"
-
-private const val RANDOM_ID_BOUND = 1_000_000
+@OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+private fun defaultNewId(): String =
+    kotlin.uuid.Uuid
+        .random()
+        .toString()

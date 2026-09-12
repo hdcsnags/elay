@@ -9,8 +9,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val appGraph = (application as ElayApp).appGraph
         setContent {
-            App()
+            App(appGraph)
         }
     }
 }
