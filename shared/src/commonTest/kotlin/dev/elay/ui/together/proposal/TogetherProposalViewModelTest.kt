@@ -1,6 +1,7 @@
 package dev.elay.ui.together.proposal
 
 import dev.elay.domain.model.Candidate
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.PairId
 import dev.elay.domain.model.PairMember
 import dev.elay.domain.model.PairSnapshot
@@ -12,6 +13,7 @@ import dev.elay.domain.model.ProposalRevision
 import dev.elay.domain.model.ProposalState
 import dev.elay.domain.model.ProposalSummary
 import dev.elay.domain.model.RespondProposal
+import dev.elay.domain.model.RsvpToken
 import dev.elay.domain.model.UserId
 import dev.elay.ui.together.fake.FakePairRepository
 import dev.elay.ui.together.proposal.fake.FakeProposalRepository
@@ -286,6 +288,92 @@ class TogetherProposalViewModelTest {
             assertEquals(0, vm.cardsAt(now).size)
         }
 
+    @Test
+    fun requestShareLinkShowsAQuietMintingStateBeforeSettling() =
+        runTest {
+            val repository = FakeProposalRepository()
+            val proposal = outgoingSampleProposal()
+            repository.emitActive(listOf(proposal))
+            val vm = viewModel(proposalRepository = repository)
+            runCurrent()
+
+            repository.nextMintResult =
+                MintRsvpResult.Applied(
+                    RsvpToken(
+                        token = "tok123.macmac",
+                        tokenId = "tok123",
+                        expiresAt = proposal.responseDeadline,
+                        discloses = listOf("title", "times", "names"),
+                    ),
+                )
+            vm.requestShareLink(proposal.id)
+
+            // Before the coroutine dispatches (runCurrent discipline): the quiet in-progress state
+            // is visible synchronously, and the mint hasn't reached the repository yet.
+            assertIs<ShareLinkUiState.Minting>(vm.state.value.shareLink)
+            assertEquals(
+                proposal.id,
+                vm.state.value.shareLink
+                    ?.proposalId,
+            )
+            assertTrue(repository.mintCalls.isEmpty())
+
+            runCurrent()
+
+            assertEquals(listOf(proposal.id), repository.mintCalls)
+            val ready = assertIs<ShareLinkUiState.Ready>(vm.state.value.shareLink)
+            assertEquals(proposal.id, ready.proposalId)
+            assertEquals("$RSVP_LINK_BASE/tok123.macmac", ready.link)
+            assertEquals(proposal.responseDeadline, ready.expiresAt)
+            assertEquals(
+                "Anyone with this link can see the title, the proposed times, and both of your names.",
+                ready.disclosureCopy,
+            )
+        }
+
+    @Test
+    fun requestShareLinkOnFailureClearsShareLinkAndShowsTheCalmNetworkMessage() =
+        runTest {
+            val repository = FakeProposalRepository()
+            val proposal = outgoingSampleProposal()
+            repository.emitActive(listOf(proposal))
+            val vm = viewModel(proposalRepository = repository)
+            runCurrent()
+
+            repository.nextMintResult = MintRsvpResult.Failed("connection_reset_by_peer", retryable = true)
+            vm.requestShareLink(proposal.id)
+            runCurrent()
+
+            assertNull(vm.state.value.shareLink)
+            assertEquals("Couldn't reach the server — try again in a moment.", vm.state.value.actionError)
+        }
+
+    @Test
+    fun dismissShareLinkClearsTheReadyState() =
+        runTest {
+            val repository = FakeProposalRepository()
+            val proposal = outgoingSampleProposal()
+            repository.emitActive(listOf(proposal))
+            val vm = viewModel(proposalRepository = repository)
+            runCurrent()
+
+            repository.nextMintResult =
+                MintRsvpResult.Applied(
+                    RsvpToken(
+                        token = "tok123.macmac",
+                        tokenId = "tok123",
+                        expiresAt = proposal.responseDeadline,
+                        discloses = listOf("title", "times", "names"),
+                    ),
+                )
+            vm.requestShareLink(proposal.id)
+            runCurrent()
+            assertIs<ShareLinkUiState.Ready>(vm.state.value.shareLink)
+
+            vm.dismissShareLink()
+            assertNull(vm.state.value.shareLink)
+        }
+
     private fun sampleProposal(): ProposalSummary {
         val start = LocalDate(2026, 9, 20).atTime(LocalTime(19, 0)).toInstant(viewerZone)
         return ProposalSummary(
@@ -318,6 +406,17 @@ class TogetherProposalViewModelTest {
                 ),
             responses = emptyList(),
             commitment = null,
+        )
+    }
+
+    /** The current revision authored by "me" (selfId) — [ProposalCardModels]'s [OutgoingProposalCard]
+     * branch, the only card the "Share response link" affordance appears on (this seat's grant §1;
+     * mirrors `rpc_mint_rsvp_token`'s server-side author-only check). */
+    private fun outgoingSampleProposal(): ProposalSummary {
+        val proposal = sampleProposal()
+        return proposal.copy(
+            creatorId = UserId("me"),
+            revisions = proposal.revisions.map { it.copy(authorId = UserId("me")) },
         )
     }
 }

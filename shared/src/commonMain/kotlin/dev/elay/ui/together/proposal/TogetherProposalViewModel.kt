@@ -1,5 +1,6 @@
 package dev.elay.ui.together.proposal
 
+import dev.elay.domain.model.MintRsvpResult
 import dev.elay.domain.model.PairMember
 import dev.elay.domain.model.PairState
 import dev.elay.domain.model.ProposalId
@@ -41,8 +42,76 @@ data class TogetherProposalUiState(
     val composer: ComposerUiState? = null,
     val pendingDecline: ProposalId? = null,
     val pendingWithdraw: ProposalId? = null,
+    val shareLink: ShareLinkUiState? = null,
     val actionError: String? = null,
 )
+
+/**
+ * Stage 3 web-RSVP "Share response link" affordance (contracts/stage3-web-rsvp.md;
+ * council/stage3-web-rsvp-security-opus.md §1-§2) — lives only on [OutgoingProposalCard] (the
+ * viewer is the current revision's author there, the only caller `rpc_mint_rsvp_token` accepts).
+ * `null` on [TogetherProposalUiState.shareLink] means idle/dismissed (no sheet, no in-progress
+ * row) — the same "absent = nothing pending" idiom as [TogetherProposalUiState.pendingDecline].
+ * There is no `Failed` variant here: a mint failure clears [TogetherProposalUiState.shareLink]
+ * back to `null` and surfaces the calm [TogetherProposalUiState.actionError] instead, matching
+ * every other mutation in this ViewModel.
+ */
+sealed interface ShareLinkUiState {
+    val proposalId: ProposalId
+
+    /** Shown inline on the card as a quiet in-progress state — no sheet yet. */
+    data class Minting(
+        override val proposalId: ProposalId,
+    ) : ShareLinkUiState
+
+    /** Backs the share sheet: the presented token link, its expiry (`proposal.response_deadline`
+     * at mint — §1 "TTL"), and the disclosure copy built from the server's own `discloses` list
+     * (see [dev.elay.domain.model.RsvpToken]'s kdoc — never a hard-coded assumption). */
+    data class Ready(
+        override val proposalId: ProposalId,
+        val link: String,
+        val expiresAt: Instant,
+        val disclosureCopy: String,
+    ) : ShareLinkUiState
+}
+
+/**
+ * The web-RSVP Edge Function's local origin (council/stage3-web-rsvp-security-opus.md §2 "Edge
+ * Function"; `npx supabase functions serve rsvp` per the contract's lead amendment 6).
+ * TODO(stage3-prod-config): swap for the deployed Edge Function's production base URL once one
+ * exists — this constant is the only place that needs to change.
+ */
+const val RSVP_LINK_BASE: String = "http://127.0.0.1:54321/functions/v1/rsvp"
+
+private fun rsvpLinkFor(token: String): String = "$RSVP_LINK_BASE/$token"
+
+/** §1 "Leaked-link threat model" labels, matched to `rpc_mint_rsvp_token`'s `discloses` values
+ * (["title","times","names"] per the contract). */
+private val SHARE_LINK_DISCLOSURE_LABELS =
+    mapOf(
+        "title" to "the title",
+        "times" to "the proposed times",
+        "names" to "both of your names",
+    )
+
+/**
+ * §A's required disclosure line, e.g. "Anyone with this link can see the title, the proposed
+ * times, and both of your names." — built from the server's own [discloses] list (never a
+ * hard-coded assumption, per [dev.elay.domain.model.RsvpToken]'s kdoc) so the copy always matches
+ * exactly what the token actually reveals.
+ */
+fun shareLinkDisclosureCopy(discloses: List<String>): String {
+    val labels = discloses.mapNotNull { SHARE_LINK_DISCLOSURE_LABELS[it] }
+    if (labels.isEmpty()) return "Anyone with this link can see limited proposal details."
+    return "Anyone with this link can see ${labels.joinAsCalmList()}."
+}
+
+private fun List<String>.joinAsCalmList(): String =
+    when (size) {
+        1 -> this[0]
+        2 -> "${this[0]} and ${this[1]}"
+        else -> "${dropLast(1).joinToString(", ")}, and ${last()}"
+    }
 
 /**
  * Plain, testable ViewModel (no android.lifecycle dependency, house pattern) over
@@ -274,6 +343,45 @@ class TogetherProposalViewModel(
 
     fun dismissActionError() {
         _state.update { it.copy(actionError = null) }
+    }
+
+    /** "Share response link" (§1 of this seat's grant) — the affordance only ever appears on an
+     * [OutgoingProposalCard], i.e. [proposalId]'s live revision was authored by [selfId], mirroring
+     * `rpc_mint_rsvp_token`'s server-side author check (council/stage3-web-rsvp-security-opus.md
+     * §2 "Minting"). Re-mintable: calling this again (e.g. after the sheet was dismissed) mints a
+     * fresh token, revoking the predecessor server-side (§1 "Re-mint") — there is no client-side
+     * caching of a previous link. */
+    fun requestShareLink(proposalId: ProposalId) {
+        _state.update { it.copy(shareLink = ShareLinkUiState.Minting(proposalId)) }
+        scope.launch {
+            when (val result = repository.mintRsvpToken(newOperationId(), proposalId)) {
+                is MintRsvpResult.Applied -> {
+                    val token = result.token
+                    _state.update {
+                        it.copy(
+                            shareLink =
+                                ShareLinkUiState.Ready(
+                                    proposalId = proposalId,
+                                    link = rsvpLinkFor(token.token),
+                                    expiresAt = token.expiresAt,
+                                    disclosureCopy = shareLinkDisclosureCopy(token.discloses),
+                                ),
+                        )
+                    }
+                }
+                is MintRsvpResult.Failed ->
+                    _state.update {
+                        it.copy(shareLink = null, actionError = networkFailureMessage(result.retryable))
+                    }
+            }
+        }
+    }
+
+    /** Closes the share sheet ("Done") without touching the minted token server-side — the token
+     * stays live until its own TTL/re-mint/revocation (§1); dismissing the sheet is purely local UI
+     * state, same as [dismissComposer]. */
+    fun dismissShareLink() {
+        _state.update { it.copy(shareLink = null) }
     }
 
     private fun findProposal(id: ProposalId): ProposalSummary? =

@@ -20,7 +20,10 @@ import kotlinx.coroutines.flow.asStateFlow
  * [ProposalResult.Conflict]/[ProposalResult.Failed] — for the next call of each kind.
  *
  * Stage 3's [mintRsvpToken] (contracts/stage3-web-rsvp.md item 6) is the 11th member forced by
- * the frozen [ProposalRepository] surface it implements, hence the [Suppress] below.
+ * the frozen [ProposalRepository] surface it implements, hence the [Suppress] below. C4 (share UI)
+ * scripts it the same way as every other call: [nextMintResult] (consumed on use, `null` default
+ * means "not scripted" — see [notScripted]) plus [mintCalls] recording every [proposalId] a caller
+ * minted for.
  */
 @Suppress("TooManyFunctions")
 class FakeProposalRepository(
@@ -39,11 +42,13 @@ class FakeProposalRepository(
     var nextRespondResult: ProposalResult? = null
     var nextCancelResult: ProposalResult? = null
     var nextCompleteResult: ProposalResult? = null
+    var nextMintResult: MintRsvpResult? = null
 
     val createCalls: MutableList<CreateProposal> = mutableListOf()
     val respondCalls: MutableList<RespondProposal> = mutableListOf()
     val cancelCalls: MutableList<ProposalId> = mutableListOf()
     val completeCalls: MutableList<ProposalId> = mutableListOf()
+    val mintCalls: MutableList<ProposalId> = mutableListOf()
 
     var closeCallCount: Int = 0
         private set
@@ -87,13 +92,13 @@ class FakeProposalRepository(
         return nextCompleteResult.also { nextCompleteResult = null } ?: notScripted()
     }
 
-    // Stage 3 spillover (contracts/stage3-web-rsvp.md item 6): minimal stub forced by
-    // ProposalRepository's one permitted frozen-surface addition; C4 (share UI) is not this
-    // seat's grant so no scripting hook is added here.
     override suspend fun mintRsvpToken(
         operationId: String,
         proposalId: ProposalId,
-    ): MintRsvpResult = MintRsvpResult.Failed("not_scripted", retryable = false)
+    ): MintRsvpResult {
+        mintCalls += proposalId
+        return nextMintResult.also { nextMintResult = null } ?: MintRsvpResult.Failed("not_scripted", retryable = false)
+    }
 
     override fun close() {
         closeCallCount++

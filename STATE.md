@@ -15,6 +15,14 @@
 
 ## Session log
 
+### 2026-09-12 — Claude Fable 5 (STAGE 3 FULL CIRCLE PROVEN LIVE: app-minted link → browser accept → realtime flip)
+
+**Seats B5 (client mint, 263 tests) and C4 (share UI, 266 tests) merged — all four Stage 3 seats now in.** The signature end-to-end, all live (shots `stage3-e2e-01..03.png`): A creates a proposal (curl-as-A; app shows the outgoing "Sent · Waiting for b2" card with dual-time + deadline) → taps **"Share response link"** → sheet renders the link, "Link works until Tomorrow at 4:00 PM", and the §A disclosure line built from the server's own `discloses` list → that exact app-minted link opened as the recipient: page says "Responding as b2 · Web share E2E" → **no-JS form accept → "Time lock confirmed · On both plans"** → server: exactly 2 shared_lock blocks, token `consumed_action=accept` → **A's untouched screen flips the card to TIME LOCK CONFIRMED via the realtime event** (client log line + before/after shots). The product's week-one hook now works without the second device even having the app open.
+
+**Machine lessons:** `supabase functions serve` dies from `| head` SIGPIPE truncation (run it unpiped in a tracked background task) and leaves a wedged `supabase_edge_runtime_Elay` container to `docker rm -f` before restarting; the C4 sheet's token is readable straight off the screenshot (no uiautomator needed).
+
+**Remaining for Stage 3 closure:** pre-gate verification round (Opus + Gemini; codex still down on credits), CI green, then closure record. Known cosmetics: pair-card rows still bare "UTC" for Etc/UTC accounts (correct per formatter, reads flat); share sheet is localhost-URL only (`TODO(stage3-prod-config)`).
+
 ### 2026-09-12 — Claude Fable 5 (STAGE 3 SERVER+WEB LANDED: web RSVP proven live end-to-end)
 
 **Seats A4 (SQL, 839-line migration + 74-assertion pgTAP) and E1 (edge function, ~1050-line index.ts, self-tested with a Node harness) merged; D1 (Stage 2 residuals) merged earlier this session.** pgTAP now **511/511** (21 suites).

@@ -15,7 +15,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -28,15 +30,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.elay.domain.model.ProposalId
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
@@ -79,7 +84,7 @@ fun ProposalFeedSection(viewModel: TogetherProposalViewModel) {
             if (cards.isEmpty()) {
                 Text("No time locks yet — propose one above.", style = MaterialTheme.typography.bodyMedium)
             } else {
-                cards.forEach { card -> ProposalCard(card, viewModel, now) }
+                cards.forEach { card -> ProposalCard(card, viewModel, now, state.shareLink) }
             }
         }
     }
@@ -91,6 +96,9 @@ fun ProposalFeedSection(viewModel: TogetherProposalViewModel) {
     state.pendingWithdraw?.let {
         WithdrawConfirmDialog(onConfirm = viewModel::confirmWithdraw, onDismiss = viewModel::cancelWithdrawConfirmation)
     }
+    (state.shareLink as? ShareLinkUiState.Ready)?.let { ready ->
+        ShareLinkSheet(ready, onDismiss = viewModel::dismissShareLink)
+    }
 }
 
 @Composable
@@ -98,12 +106,13 @@ private fun ProposalCard(
     card: ProposalCardUiModel,
     viewModel: TogetherProposalViewModel,
     now: Instant,
+    shareLink: ShareLinkUiState?,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (card) {
                 is IncomingProposalCard -> IncomingCardBody(card, viewModel, now)
-                is OutgoingProposalCard -> OutgoingCardBody(card, viewModel, now)
+                is OutgoingProposalCard -> OutgoingCardBody(card, viewModel, now, shareLink)
                 is AcceptedProposalCard -> AcceptedCardBody(card, viewModel)
                 is ClosedProposalCard -> ClosedCardBody(card, viewModel)
             }
@@ -223,6 +232,7 @@ private fun OutgoingCardBody(
     card: OutgoingProposalCard,
     viewModel: TogetherProposalViewModel,
     now: Instant,
+    shareLink: ShareLinkUiState?,
 ) {
     Eyebrow(label = "TIME LOCK PROPOSAL · Sent", trailing = "Waiting for ${card.partnerDisplayName}")
     Text(card.title, style = MaterialTheme.typography.titleMedium)
@@ -243,11 +253,103 @@ private fun OutgoingCardBody(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    TextButton(
-        onClick = { viewModel.requestWithdraw(card.id) },
-        modifier = Modifier.semantics { contentDescription = "Withdraw proposal" },
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Withdraw proposal")
+        TextButton(
+            onClick = { viewModel.requestWithdraw(card.id) },
+            modifier = Modifier.semantics { contentDescription = "Withdraw proposal" },
+        ) {
+            Text("Withdraw proposal")
+        }
+        ShareLinkAffordance(
+            proposalId = card.id,
+            shareLink = shareLink,
+            onRequestShareLink = { viewModel.requestShareLink(card.id) },
+        )
+    }
+}
+
+/** "Share response link" (this seat's grant, §1): appears only on [OutgoingProposalCard] — the
+ * viewer authored the live revision there, the only caller `rpc_mint_rsvp_token` accepts
+ * (council/stage3-web-rsvp-security-opus.md §2 "Minting"). While minting, a quiet inline state
+ * replaces the button rather than opening a sheet for an as-yet-nonexistent link; once ready, the
+ * sheet itself is rendered by [ShareLinkSheet] at the feed's top level (mirrors the composer/decline
+ * dialogs). */
+@Composable
+private fun ShareLinkAffordance(
+    proposalId: ProposalId,
+    shareLink: ShareLinkUiState?,
+    onRequestShareLink: () -> Unit,
+) {
+    val isMintingThisCard = shareLink is ShareLinkUiState.Minting && shareLink.proposalId == proposalId
+    if (isMintingThisCard) {
+        Text(
+            "Preparing your link…",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { contentDescription = "Preparing your share link" },
+        )
+    } else {
+        TextButton(
+            onClick = onRequestShareLink,
+            modifier = Modifier.semantics { contentDescription = "Share response link" },
+        ) {
+            Text("Share response link")
+        }
+    }
+}
+
+/**
+ * The share sheet (this seat's grant, §1): the presented token link, an expiry line in the
+ * viewer's own zone (matching every other wall-clock label in this file), the §A disclosure copy,
+ * a Copy button (commonMain [LocalClipboardManager] — no platform share intent), and Done.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareLinkSheet(
+    shareLink: ShareLinkUiState.Ready,
+    onDismiss: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val now = Clock.System.now()
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Share response link", style = MaterialTheme.typography.titleMedium)
+            Text(
+                shareLink.link,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { contentDescription = "Response link: ${shareLink.link}" },
+            )
+            Text(
+                "Link works until ${deadlineWallClockLabel(now, shareLink.expiresAt, TimeZone.currentSystemDefault())}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                shareLink.disclosureCopy,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { clipboard.setText(AnnotatedString(shareLink.link)) },
+                    modifier = Modifier.semantics { contentDescription = "Copy link" },
+                ) {
+                    Text("Copy")
+                }
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.semantics { contentDescription = "Done" },
+                ) {
+                    Text("Done")
+                }
+            }
+        }
     }
 }
 
