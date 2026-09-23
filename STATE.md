@@ -6,7 +6,7 @@
 
 | Item | Value |
 |---|---|
-| Phase | **ALL FIVE STAGES CLOSED — master-plan-v2 COMPLETE (pairing · time-lock · web RSVP · honest availability · retention+hardening), every stage live-E2E'd and independently verified. Remaining items are Michael-blockers (PING) or recorded deferrals.** |
+| Phase | **master-plan-v2 COMPLETE (5 stages closed) → STAGE 6: the design language (Michael's brand ruling, 2026-09-23)** |
 | Open gate | **Gate 1 — CLOSED 2026-09-12** (checklist with evidence in the closing session entry; surfaces per the pairs pivot in `council/master-plan-v2.md`). Gates 0a/0b closed 2026-09-11 (records in `council/gate-0a-record/` and the 0b session entry) |
 | Stack | **KMP + Compose Multiplatform** (Michael's ruling 2026-09-11; the brief's RN + Expo path is dropped — Expo apps read as "pretty ugly" to him and he has Macs for iOS). Open: backend (Supabase via supabase-kt vs Firebase via GitLive), Room 3 vs SQLDelight, classic nav vs Nav 3, iOS pipeline (local Mac vs GitHub Actions macOS runner vs hosted CI) |
 | Repo | `github.com/hdcsnags/elay` (public), main; this folder is the repo root (docs + app together) |
@@ -14,6 +14,15 @@
 | Parked for Michael | **Local-data ruling (Room 3 vs SQLDelight — the one council split; default Room 3)** · ratify backend=Supabase and create the Supabase project + keys (Gate 0b, his hands per protocol) · **GitHub repo public vs private** (public = free macOS runners; private = 10× minute multiplier) · app IDs / bundle IDs · brand name + icon direction · which two test accounts · Apple developer account timing |
 
 ## Session log
+
+### 2026-09-23 — Claude Fable 5 (STAGE 6 OPENED: the design language — Michael's brand ruling)
+
+**Michael returned and ruled the parked brand item.** The name ELAY is deeply personal (the story stays out of this public repo, deliberately). The quality bar, in his words' spirit: the app must not "look like a man built it" — the judge is a person with a genuinely high fashion sense. Design north star adopted into the Stage 6 brief: *would a discerning, fashion-literate woman choose to keep this app on her phone?* Explicitly ruled IN the brief: taste over cliché (no gendered pandering — it fails harder than default Material), editorial typography, restrained palette, generous whitespace, considered motion, a real brand icon (today it ships the DEFAULT ANDROID ROBOT), light + dark as first-class looks.
+
+Michael's own framing of the current state was right: the council reviewed UX structure/copy/a11y every stage, but visual design was never a lane — the app is a functionally deep developer build wearing stock Material3. Stage 6 closes that: §A design-system contract (the ADR-004 token layer, theming architecture, icon/splash pipeline, migration slices) + §B the design language itself (palette/type/shape/motion/icon/empty-states + a screenshot-testable taste checklist), then coder rounds + a visual pre-gate review against §B's checklist.
+
+**PING cleared:** "brand name + icon direction" (parked since 2026-09-11) — ruled.
+
 
 ### 2026-09-12 — Claude Fable 5 (STAGE 5 CLOSED · MASTER PLAN COMPLETE)
 

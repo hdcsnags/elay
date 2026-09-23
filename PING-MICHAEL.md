@@ -17,4 +17,5 @@
 - **Apple anything** — not needed: app won't ship; iOS CI builds run unsigned simulator builds (`CODE_SIGNING_ALLOWED=NO`). *(Added 2026-09-11.)*
 
 ## Cleared
+- ~~Brand name + icon direction~~ (ruled 2026-09-23: the name stands, quality bar = fashion-literate taste — Stage 6 opened; the personal context stays out of this public file by lead ruling)
 - ~~Stack ruling~~ (KMP + CMP, 2026-09-11) · ~~local-data split~~ (Room 3, "ship room") · ~~repo visibility~~ (public, existing `hdcsnags` GitHub account) · ~~app id~~ (concierge chose `dev.elay.app` under the autonomy grant)
