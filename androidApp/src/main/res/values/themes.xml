@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stage 6 LEAD-0: replaces the hardcoded @android:style/Theme.Material.Light.NoActionBar
+     that caused a white flash on dark-mode cold start (§A baseline census).
+     Colours are the §B palette anchors (light: Warm Alabaster paper). -->
+<resources>
+    <color name="elay_paper">#FBF9F6</color>
+    <color name="elay_ink">#171415</color>
+
+    <style name="Theme.Elay" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/elay_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.Elay.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/elay_paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Elay</item>
+    </style>
+</resources>

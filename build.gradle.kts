@@ -61,6 +61,43 @@ val assertNoPrintln by tasks.registering {
         }
     }
 }
+// Stage 6 failure mode 2 (contracts/stage6-design-language.md): a second colour source is
+// forbidden — no `Color(0x...)` literal and no `isSystemInDarkTheme()` call outside
+// shared ui/theme/. detekt can't see this (same type-resolution gap as F18 above), so the
+// rail is the same grep-shaped task. The allowlist below names the three PRE-EXISTING leaks
+// (§A baseline census); each owning slice (D4: PlanScreen, D5: CertaintyBadge) must migrate
+// its file AND remove it from this list — the list only ever shrinks.
+val assertColorTokenDiscipline by tasks.registering {
+    val uiRoot = file("shared/src/commonMain/kotlin/dev/elay/ui")
+    val preexistingLeaks = setOf("PlanScreen.kt", "CertaintyBadge.kt")
+    inputs.dir(uiRoot)
+    doLast {
+        val offenders =
+            uiRoot.walkTopDown()
+                .filter { it.isFile && it.extension == "kt" && !it.path.contains("${File.separator}theme${File.separator}") }
+                .filter { it.name !in preexistingLeaks }
+                .flatMap { f ->
+                    f.readLines().mapIndexedNotNull { i, l ->
+                        val t = l.trimStart()
+                        if ((l.contains("Color(0x") || l.contains("isSystemInDarkTheme(")) &&
+                            !t.startsWith("//") && !t.startsWith("*")
+                        ) {
+                            f.path + ":" + (i + 1) + "  " + l.trim()
+                        } else {
+                            null
+                        }
+                    }
+                }
+                .toList()
+        require(offenders.isEmpty()) {
+            "Colour literals and isSystemInDarkTheme() are forbidden outside ui/theme/ (Stage 6 failure mode 2):" +
+                System.lineSeparator() + offenders.joinToString(System.lineSeparator())
+        }
+    }
+}
 subprojects {
-    tasks.matching { it.name == "check" }.configureEach { dependsOn(assertNoPrintln) }
+    tasks.matching { it.name == "check" }.configureEach {
+        dependsOn(assertNoPrintln)
+        dependsOn(assertColorTokenDiscipline)
+    }
 }

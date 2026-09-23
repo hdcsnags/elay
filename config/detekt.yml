@@ -3,7 +3,7 @@
 
 style:
   MagicNumber:
-    active: false # UI dp/sp literals; revisit when the token layer lands (ADR-004)
+    active: false # UI dp/sp literals; token layer landing in Stage 6 (D1-D6); revisit after D6 merges (contract am.7)
   ForbiddenMethodCall:
     active: true
     methods:
