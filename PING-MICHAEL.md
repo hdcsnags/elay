@@ -3,8 +3,7 @@
 *Concierge keeps this current (newest first). Michael clears items when he's around; nothing here stalls work that has a workaround.*
 
 ## Blocking now
-*(nothing hard-blocking — build proceeding with a lane reassignment)*
-- **Codex workspace out of credits** — both codex seats (Sol AND Astra) fail instantly with `ERROR: Your workspace is out of credits. Add credits to continue.` (michael.thomas@dsbn.org workspace, verified 2026-09-12 ~06:15 during Astra's Stage 2 pre-gate dispatch — two runs: one 268s partial, one 4s instant-fail). Spend is yours per protocol. **Workaround in effect:** Astra's pre-gate verification lane reassigned to Gemini (still cross-vendor, independent of lead + coder models); Sol contract lanes fall to Gemini/lead until credits return. *(Added 2026-09-12.)*
+*(nothing — build proceeding)*
 
 ## Coming up (not yet blocking, workarounds in place)
 - **Next-phase bundle: hosted Supabase + deployed edge function + real RSVP_LINK_BASE + deep links (VIEW intents) + FCM** — these five belong together: a share link that works off this machine needs the hosted project and a deployed function; re-entering the app from that link needs deep links; closed-app nudges need FCM. All account-level = your hands. *(Added 2026-09-12 at master-plan completion.)*
@@ -17,5 +16,6 @@
 - **Apple anything** — not needed: app won't ship; iOS CI builds run unsigned simulator builds (`CODE_SIGNING_ALLOWED=NO`). *(Added 2026-09-11.)*
 
 ## Cleared
+- ~~Codex workspace out of credits~~ (credits restored — probe verified 2026-09-23, `SEAT-OK`; Sol/Astra rejoin the council, Astra takes the Stage 6 visual pre-gate)
 - ~~Brand name + icon direction~~ (ruled 2026-09-23: the name stands, quality bar = fashion-literate taste — Stage 6 opened; the personal context stays out of this public file by lead ruling)
 - ~~Stack ruling~~ (KMP + CMP, 2026-09-11) · ~~local-data split~~ (Room 3, "ship room") · ~~repo visibility~~ (public, existing `hdcsnags` GitHub account) · ~~app id~~ (concierge chose `dev.elay.app` under the autonomy grant)
