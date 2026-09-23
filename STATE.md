@@ -15,6 +15,13 @@
 
 ## Session log
 
+### 2026-09-23 — Claude Fable 5 (Stage 6 contract FROZEN: two lanes in, taste bar codified)
+
+Both blind lanes returned and are saved verbatim: **§A design-system contract** (Opus, conf 0.9 — `council/stage6-design-opus.md`: the real baseline census incl. the three colour leaks + the manifest's hardcoded light platform theme causing a dark cold-start white flash; the 8-file `ui/theme/` token layer with `toMaterialColorScheme()` projection; bundled-fonts ruling; icon/splash pipeline; LEAD-0/D1–D7 disjoint slices; three failure modes) and **§B the design language** (Gemini, conf 0.96 — `council/stage6-design-gemini.md`: warm editorial palette anchored on Smoked Cassis `#6D3240`, Newsreader + Plus Jakarta Sans, no his/hers colour-coding, four signature motions, the interlocking E→L monogram, designed replacements for every recorded shame, the 10-point binary taste checklist). **`contracts/stage6-design-language.md` FROZEN** with 7 lead amendments (youTint/themTint dropped per §B; Cedar takes availabilityCaution + tertiary; five font faces under the 600 KB ceiling with the italic protected; the monogram is the one shared vector; timezone humanization = defect repair with commonTest; motion→token map; visual pre-gate = §B checks + §A regression shots + ElayContrastTest, run by Astra). Next: LEAD-0 (manifest/themes/splash/detekt), then D1 tokens.
+
+Environment note: Docker unresponsive on probe (2026-09-23) — restart Docker Desktop + stack + emulator before any live verification round.
+
+
 ### 2026-09-23 — Claude Fable 5 (STAGE 6 OPENED: the design language — Michael's brand ruling)
 
 **Michael returned and ruled the parked brand item.** The name ELAY is deeply personal (the story stays out of this public repo, deliberately). The quality bar, in his words' spirit: the app must not "look like a man built it" — the judge is a person with a genuinely high fashion sense. Design north star adopted into the Stage 6 brief: *would a discerning, fashion-literate woman choose to keep this app on her phone?* Explicitly ruled IN the brief: taste over cliché (no gendered pandering — it fails harder than default Material), editorial typography, restrained palette, generous whitespace, considered motion, a real brand icon (today it ships the DEFAULT ANDROID ROBOT), light + dark as first-class looks.
