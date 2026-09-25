@@ -2,6 +2,7 @@ package dev.elay.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 
@@ -18,6 +19,11 @@ import androidx.compose.runtime.CompositionLocalProvider
  * merges, with no screen edits required. [LocalElayColors], [LocalElaySpacing], and
  * [LocalElayMotion] are provided alongside for the values Material3 has no slot for (semantic
  * hairlines, the spacing scale, the four signature-motion tokens).
+ *
+ * The root [Surface] is the ground every screen stands on: it paints `background` and sets
+ * `LocalContentColor` to `onBackground`, so a screen composed outside a `Scaffold` (sign-in,
+ * loading) reads in the mode-correct ink instead of Compose's black default (found on the
+ * D2/D3 emulator pass: dark-mode sign-in title rendered near-black on Obsidian).
  */
 @Composable
 fun ElayTheme(
@@ -34,7 +40,12 @@ fun ElayTheme(
             colorScheme = tokens.toMaterialColorScheme(darkTheme),
             typography = elayTypography(elayFontFamilies()),
             shapes = elayShapes,
-            content = content,
-        )
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.onBackground,
+                content = content,
+            )
+        }
     }
 }

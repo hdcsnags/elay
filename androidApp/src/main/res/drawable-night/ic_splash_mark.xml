@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ELAY splash mark, DARK (Stage 6 D3): silk letterforms + Rose Fig stop on Obsidian Truffle. Same geometry as ic_launcher_foreground; the word-mark "el." set in Newsreader
+  Italic (OFL), outlines extracted verbatim from the bundled face via fontTools -
+  real type-designer letterforms, not hand-drawn approximations. The Rose Fig
+  full stop is the fashion-label period; "el" is the ligature honouring ELAY.
+  Composition: baseline word centred at (54,54) on the 108 grid, scaled so the
+  full mark sits 2% inside the adaptive-icon 33-unit safe circle.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F3EFEA"
+        android:pathData="M44.37 50.72Q42.53 50.72 41.07 51.81Q39.60 52.89 38.50 54.70Q37.39 56.51 36.66 58.67Q35.93 60.83 35.56 63.01Q35.18 65.19 35.18 67.00Q35.18 70.20 36.46 71.54Q37.74 72.88 39.79 72.88Q41.19 72.88 42.42 72.38Q43.65 71.88 44.79 70.65Q45.92 69.42 47.01 67.18H48.76Q47.23 70.73 45.72 72.74Q44.21 74.75 42.45 75.57Q40.69 76.40 38.36 76.40Q36.02 76.40 34.30 75.48Q32.57 74.56 31.62 72.75Q30.67 70.95 30.67 68.30Q30.67 65.03 31.43 62.08Q32.20 59.12 33.58 56.68Q34.97 54.23 36.79 52.43Q38.61 50.62 40.76 49.63Q42.90 48.63 45.18 48.63Q47.35 48.63 48.72 49.39Q50.09 50.16 50.73 51.39Q51.37 52.61 51.37 54.02Q51.37 55.35 50.79 56.68Q50.22 58.00 49.32 58.75Q47.51 59.49 45.70 60.21Q43.90 60.93 42.08 61.60Q40.26 62.26 38.44 62.90Q36.62 63.54 34.78 64.13L34.87 61.89Q37.86 61.05 40.01 60.21Q42.16 59.37 43.57 58.56Q44.99 57.75 45.80 56.93Q46.61 56.10 46.95 55.28Q47.29 54.45 47.29 53.61Q47.29 52.74 46.95 52.10Q46.61 51.46 45.97 51.09Q45.33 50.72 44.37 50.72Z" />
+    <path
+        android:fillColor="#F3EFEA"
+        android:pathData="M64.57 36.30Q64.01 35.77 63.48 35.35Q62.95 34.93 62.31 34.58Q61.67 34.22 60.77 33.91L61.02 33.13L69.39 31.60H70.11L57.56 73.25L57.19 72.38Q58.22 72.51 59.54 72.10Q60.86 71.70 62.31 70.82Q63.76 69.95 65.13 68.71L66.00 69.70Q63.82 72.26 61.98 73.72Q60.15 75.18 58.61 75.79Q57.07 76.40 55.67 76.40Q54.20 76.40 53.47 75.99Q52.74 75.59 53.02 74.68Z" />
+    <path
+        android:fillColor="#DF9EAC"
+        android:pathData="M74.00 68.80Q75.49 68.80 76.41 69.70Q77.33 70.61 77.33 71.91Q77.33 73.07 76.77 74.05Q76.21 75.03 75.24 75.62Q74.28 76.21 73.00 76.21Q71.51 76.21 70.59 75.31Q69.67 74.40 69.67 73.10Q69.67 71.94 70.23 70.96Q70.79 69.98 71.77 69.39Q72.75 68.80 74.00 68.80Z" />
+</vector>
